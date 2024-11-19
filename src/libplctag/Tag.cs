@@ -5,6 +5,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+#define NoNative
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -64,7 +66,11 @@ namespace libplctag
 
         public Tag()
         {
+#if NoNative
+            _native = new NoNative();
+#else
             _native = new Native();
+#endif
         }
 
         internal Tag(INative nativeMethods)

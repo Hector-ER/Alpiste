@@ -17,6 +17,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libplctag.NativeImport.Test
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "libplctag.NativeImport.Tests.NetFramework.TransitiveDependency", "libplctag.NativeImport.Tests.NetFramework.TransitiveDependency\libplctag.NativeImport.Tests.NetFramework.TransitiveDependency.csproj", "{E5CA2CC4-D572-4606-8C7F-CE14B6A5BA4D}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{DC08BF35-87A1-4C4A-9CDA-86A98016BC62}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharp DotNetCore", "..\examples\CSharp DotNetCore\CSharp DotNetCore.csproj", "{CFECF3B0-8983-4C28-810F-6BB17F1EE630}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,9 +115,24 @@ Global
 		{E5CA2CC4-D572-4606-8C7F-CE14B6A5BA4D}.Release|x64.Build.0 = Release|Any CPU
 		{E5CA2CC4-D572-4606-8C7F-CE14B6A5BA4D}.Release|x86.ActiveCfg = Release|Any CPU
 		{E5CA2CC4-D572-4606-8C7F-CE14B6A5BA4D}.Release|x86.Build.0 = Release|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Debug|x64.Build.0 = Debug|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Debug|x86.Build.0 = Debug|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Release|x64.ActiveCfg = Release|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Release|x64.Build.0 = Release|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Release|x86.ActiveCfg = Release|Any CPU
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{CFECF3B0-8983-4C28-810F-6BB17F1EE630} = {DC08BF35-87A1-4C4A-9CDA-86A98016BC62}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5A7A7394-56CD-4BC3-89B0-33608B307B86}
