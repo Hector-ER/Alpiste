@@ -67,6 +67,7 @@ namespace CSharpDotNetCore
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
+            
             LibPlcTag.LogEvent += LibPlcTag_LogEvent;
             LibPlcTag.DebugLevel = DebugLevel.Spew;
             return Task.CompletedTask;
