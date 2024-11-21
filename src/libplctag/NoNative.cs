@@ -11,7 +11,10 @@ namespace libplctag
     {
         public int plc_tag_check_lib_version(int req_major, int req_minor, int req_patch) { return 0; } // => plctag.plc_tag_check_lib_version(req_major, req_minor, req_patch);
         public Int32 plc_tag_create(string lpString, int timeout) { return 0; } // => plctag.plc_tag_create(lpString, timeout);
-        public Int32 plc_tag_create_ex(string lpString, callback_func_ex func, IntPtr userdata, int timeout) { return 0; } //=> plctag.plc_tag_create_ex(lpString, func, userdata, timeout);
+        public Int32 plc_tag_create_ex(string lpString, callback_func_ex func, IntPtr userdata, int timeout)
+        {
+            return Alpiste.Lib.PlcTag.plc_tag_create_ex(lpString, func, userdata, timeout);
+        } //=> plctag.plc_tag_create_ex(lpString, func, userdata, timeout);
         public int plc_tag_destroy(Int32 tag) { return 0; } // => plctag.plc_tag_destroy(tag);
         public void plc_tag_shutdown() { return; } // => plctag.plc_tag_shutdown();
         public int plc_tag_register_callback(Int32 tag_id, callback_func func) { return 0; } // => plctag.plc_tag_register_callback(tag_id, func);
@@ -22,7 +25,10 @@ namespace libplctag
         public int plc_tag_unlock(Int32 tag) { return 0; } // => plctag.plc_tag_unlock(tag);
         public int plc_tag_status(Int32 tag) { return 0; } //=> plctag.plc_tag_status(tag);
         public string plc_tag_decode_error(int err) { return ""; } //=> plctag.plc_tag_decode_error(err);
-        public int plc_tag_read(Int32 tag, int timeout) { return 0;} // => plctag.plc_tag_read(tag, timeout);
+        public int plc_tag_read(Int32 tag, int timeout) 
+        {
+            return Alpiste.Lib.PlcTag.plc_tag_read(tag, timeout);
+        } // => plctag.plc_tag_read(tag, timeout);
         public int plc_tag_write(Int32 tag, int timeout) { return 0; } // => plctag.plc_tag_write(tag, timeout);
         public int plc_tag_get_size(Int32 tag) { return 0; }// => plctag.plc_tag_get_size(tag);
         public int plc_tag_set_size(Int32 tag, int new_size) => plctag.plc_tag_set_size(tag, new_size);

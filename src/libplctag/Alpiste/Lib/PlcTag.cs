@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Linq;
+using static libplctag.NativeImport.plctag;
 
 namespace Alpiste.Lib
 {
@@ -220,7 +221,7 @@ namespace Alpiste.Lib
 
             /* Allen-Bradley PLCs */
             new tag_type_map_t( "ab-eip", null, null, null, AbTag.ab_tag_create),
-        //    new tag_type_map_t( "ab_eip", NULL, NULL, NULL, ab_tag_create),
+            new tag_type_map_t( "ab_eip", null, null, null, AbTag.ab_tag_create),
         //    new tag_type_map_t( "modbus-tcp", NULL, NULL, NULL, mb_tag_create),
         //    new tag_type_map_t( "modbus_tcp", NULL, NULL, NULL, mb_tag_create)
         };
@@ -240,7 +241,7 @@ namespace Alpiste.Lib
         public delegate void tag_extended_callback_func /*(int32_t tag_id, int event, int status, void* user_data)*/
             (int tag_id, int Event, int status, Object user_data);
 
-        public static Int32 plc_tag_create_ex(string attrib_str, /*TagCallbackFunc*/ tag_extended_callback_func tag_callback_func, object userdata, int timeout)
+        public static Int32 plc_tag_create_ex(string attrib_str, callback_func_ex/*TagCallbackFunc tag_extended_callback_func*/ tag_callback_func, object userdata, int timeout)
         {
             return plc_tag_create_(attrib_str, timeout).tag_id;
         }
