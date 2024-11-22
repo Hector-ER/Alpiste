@@ -1739,6 +1739,7 @@ namespace Alpiste.Protocol.AB
             data_offset = 0;
 
             /* grab a request off the front of the list. */
+            lock (mutex)
             { //critical_block(session->mutex) {
                 int max_payload_size = GET_MAX_PAYLOAD_SIZE(/*session*/);
 

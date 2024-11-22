@@ -136,7 +136,7 @@ namespace Alpiste.Lib
         public Int32 auto_sync_read_ms;
         public Int32 auto_sync_write_ms;
         public byte[] data;
-        public tag_byte_order_t byte_order = new tag_byte_order_t();
+        public tag_byte_order_t byte_order = null; // new tag_byte_order_t();
         public mutex_t ext_mutex=new mutex_t();
         public mutex_t api_mutex=new mutex_t();
         public Cond tag_cond_wait;
@@ -350,7 +350,7 @@ namespace Alpiste.Lib
             */
             if (timeout > 0 && rc == PLCTAG_STATUS_PENDING)
             {
-                Int64 start_time = DateTime.Now.Millisecond; // time_ms();
+                Int64 start_time = Alpiste.Utils.Milliseconds.ms(); // time_ms();
                 Int64 end_time = start_time + timeout;
 
                 /* wake up the tickler in case it is needed to create the tag. */
@@ -359,7 +359,7 @@ namespace Alpiste.Lib
                 /* we loop as long as we have time left to wait. */
                 do
                 {
-                    Int64 timeout_left = end_time - DateTime.Now.Millisecond; //time_ms();
+                    Int64 timeout_left = end_time - Alpiste.Utils.Milliseconds.ms(); //time_ms();
 
                     /* clamp the timeout left to non-negative int range. */
                     if (timeout_left < 0)
@@ -420,7 +420,7 @@ namespace Alpiste.Lib
                         throw new Exception("Timeout expired");
                         //return null; // rc;
                     }
-                } while (rc == PLCTAG_STATUS_PENDING && DateTime.Now.Millisecond /*    time_ms()*/ > end_time);
+                } while (rc == PLCTAG_STATUS_PENDING && Alpiste.Utils.Milliseconds.ms() /*    time_ms()*/ > end_time);
 
                 /* clear up any remaining flags.  This should be refactored. */
                 tag.read_in_flight = false;
@@ -1192,7 +1192,7 @@ namespace Alpiste.Lib
                 Int64 timeout_wait_ms = TAG_TICKLER_TIMEOUT_MS;
 
                 /* what is the maximum time we will wait until */
-                tag_tickler_wait_timeout_end = DateTime.Now.Millisecond /*time_ms()*/ + timeout_wait_ms;
+                tag_tickler_wait_timeout_end = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/ + timeout_wait_ms;
   //*ELIM*              tag_lookup_mutex.mutex_lock();
   //*ELIM*              //Monitor.Enter(tag_lookup_mutex);
   //*ELIM*              {
@@ -1347,7 +1347,7 @@ namespace Alpiste.Lib
 
                 if (tag_tickler_wait!=null)
                 {
-                    Int64 time_to_wait = tag_tickler_wait_timeout_end - DateTime.Now.Millisecond /*time_ms()*/;
+                    Int64 time_to_wait = tag_tickler_wait_timeout_end - Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
                     int wait_rc = PLCTAG_STATUS_OK;
 
                     if (time_to_wait < TAG_TICKLER_TIMEOUT_MIN_MS)
@@ -1394,7 +1394,7 @@ namespace Alpiste.Lib
             while (!library_terminating)
             {
                 /* what is the maximum time we will wait until */
-                tag_tickler_wait_timeout_end = DateTime.Now.Millisecond + TAG_TICKLER_TIMEOUT_MS;
+                tag_tickler_wait_timeout_end = Alpiste.Utils.Milliseconds.ms() + TAG_TICKLER_TIMEOUT_MS;
             
                 PlcTag[] tags_array;
                 lock (tags)
@@ -1489,7 +1489,7 @@ namespace Alpiste.Lib
 
         //        if (tag_tickler_wait != null)
         //        {
-                    Int64 time_to_wait = tag_tickler_wait_timeout_end - DateTime.Now.Millisecond /*time_ms()*/;
+                    Int64 time_to_wait = tag_tickler_wait_timeout_end - Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
                     int wait_rc = PLCTAG_STATUS_OK;
 
                     if (time_to_wait < TAG_TICKLER_TIMEOUT_MIN_MS)
@@ -1816,11 +1816,11 @@ namespace Alpiste.Lib
                         if (auto_sync_next_write == 0)
                         {
                             /* we need to queue up a new write. */
-                            auto_sync_next_write = DateTime.Now.Millisecond /*time_ms()*/ + auto_sync_write_ms;
+                            auto_sync_next_write = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/ + auto_sync_write_ms;
 
                             //pdebug(DEBUG_DETAIL, "Queueing up automatic write in %dms.", tag->auto_sync_write_ms);
                         }
-                        else if (!write_in_flight && auto_sync_next_write <= DateTime.Now.Millisecond /*time_ms()*/)
+                        else if (!write_in_flight && auto_sync_next_write <= Alpiste.Utils.Milliseconds.ms() /*time_ms()*/)
                         {
                             //pdebug(DEBUG_DETAIL, "Triggering automatic write start.");
 
@@ -1854,7 +1854,7 @@ namespace Alpiste.Lib
                 /* if this tag has automatic reads, we need to check that state too. */
                 if (auto_sync_read_ms > 0)
                 {
-                    Int64 current_time = DateTime.Now.Millisecond /*time_ms()*/;
+                    Int64 current_time = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
 
                     // /* spread these out randomly to avoid too much clustering. */
                     // if(tag->auto_sync_next_read == 0) {
@@ -1945,11 +1945,11 @@ namespace Alpiste.Lib
                     if (auto_sync_next_write == 0)
                     {
                         /* we need to queue up a new write. */
-                        auto_sync_next_write = DateTime.Now.Millisecond + auto_sync_write_ms;
+                        auto_sync_next_write = Alpiste.Utils.Milliseconds.ms() + auto_sync_write_ms;
 
                         //pdebug(DEBUG_DETAIL, "Queueing up automatic write in %dms.", tag->auto_sync_write_ms);
                     }
-                    else if (!write_in_flight && auto_sync_next_write <= DateTime.Now.Millisecond)
+                    else if (!write_in_flight && auto_sync_next_write <= Alpiste.Utils.Milliseconds.ms())
                     {
                         //pdebug(DEBUG_DETAIL, "Triggering automatic write start.");
 
@@ -1975,7 +1975,7 @@ namespace Alpiste.Lib
                 /* if this tag has automatic reads, we need to check that state too. */
                 if (auto_sync_read_ms > 0)
                 {
-                    Int64 current_time = DateTime.Now.Millisecond /*time_ms()*/;
+                    Int64 current_time = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
 
                     // /* spread these out randomly to avoid too much clustering. */
                     // if(tag->auto_sync_next_read == 0) {
@@ -2292,7 +2292,7 @@ namespace Alpiste.Lib
                 tag.plc_tag_generic_handle_event_callbacks();
 
                 /* check read cache, if not expired, return existing data. */
-                if (tag.read_cache_expire > DateTime.Now.Millisecond)
+                if (tag.read_cache_expire > Alpiste.Utils.Milliseconds.ms())
                 {
                     //pdebug(DEBUG_INFO, "Returning cached data.");
                     rc = PLCTAG_STATUS_OK;
@@ -2322,7 +2322,7 @@ namespace Alpiste.Lib
                 /* clear the condition var */
                 //cond_clear(tag->tag_cond_wait);
                 tag.tag_cond_wait.cond_clear();
-
+                tag.tag_cond_wait.debug = true;
                 /* the protocol implementation does not do the timeout. */
                 //if (tag.vtable && tag.vtable->read)
                 //{
@@ -2365,7 +2365,7 @@ namespace Alpiste.Lib
 
             if ((is_done ==0 ) && timeout > 0)
             {
-                Int64 start_time = DateTime.Now.Millisecond;
+                Int64 start_time = Alpiste.Utils.Milliseconds.ms();
                 Int64 end_time = start_time + timeout;
 
                 /* wake up the tickler in case it is needed to read the tag. */
@@ -2374,7 +2374,7 @@ namespace Alpiste.Lib
                 /* we loop as long as we have time left to wait. */
                 do
                 {
-                    Int64 timeout_left = end_time - DateTime.Now.Millisecond;
+                    Int64 timeout_left = end_time - Alpiste.Utils.Milliseconds.ms();
 
                     /* clamp the timeout left to non-negative int range. */
                     if (timeout_left < 0)
@@ -2389,7 +2389,7 @@ namespace Alpiste.Lib
 
                     /* wait for something to happen */
                     //rc = cond_wait(tag->tag_cond_wait, (int)timeout_left);
-                    tag.tag_cond_wait.cond_wait((int)timeout_left);
+                    rc = tag.tag_cond_wait.cond_wait((int)timeout_left);
 
                     if (rc != PLCTAG_STATUS_OK)
                     {
@@ -2408,7 +2408,7 @@ namespace Alpiste.Lib
                         //pdebug(DEBUG_WARN, "Error %s while trying to read tag!", plc_tag_decode_error(rc));
                         plc_tag_abort(id);
                     }
-                } while (rc == PLCTAG_STATUS_PENDING && DateTime.Now.Millisecond < end_time);
+                } while (rc == PLCTAG_STATUS_PENDING && Alpiste.Utils.Milliseconds.ms() < end_time);
 
                 /* the read is not in flight anymore. */
                 tag.api_mutex.mutex_lock();
@@ -2428,7 +2428,7 @@ namespace Alpiste.Lib
             if (rc == PLCTAG_STATUS_OK)
             {
                 /* set up the cache time.  This works when read_cache_ms is zero as it is already expired. */
-                tag.read_cache_expire = DateTime.Now.Millisecond + tag.read_cache_ms;
+                tag.read_cache_expire = Alpiste.Utils.Milliseconds.ms() + tag.read_cache_ms;
             }
 
             /* fire any events that are pending. */
@@ -2615,6 +2615,123 @@ namespace Alpiste.Lib
         }
 
 
+        public static Int32 plc_tag_get_int32(Int32 id, int offset)
+        {
+            Int32 res = Int32.MinValue; // INT32_MIN;
+            PlcTag tag = lookup_tag(id);
+
+            //pdebug(DEBUG_SPEW, "Starting.");
+
+            if (tag == null)
+            {
+                //pdebug(DEBUG_WARN, "Tag not found.");
+                return res;
+            }
+
+            /* is there data? */
+            if (tag.data== null)
+            {
+                //pdebug(DEBUG_WARN, "Tag has no data!");
+                tag.status_ = PLCTAG_ERR_NO_DATA;
+                //rc_dec(tag);
+                return res;
+            }
+
+            if (!tag.is_bit)
+            {
+                tag.api_mutex.mutex_lock();
+                /*critical_block(tag->api_mutex)*/
+                {
+                    if ((offset >= 0) && (offset + (/*(int)sizeof(int32_t)*/4) <= tag.size))
+                    {
+                        res = (Int32)(((UInt32)(tag.data[offset + tag.byte_order.int32_order[0]]) << 0) +
+                                        ((Int32)(tag.data[offset + tag.byte_order.int32_order[1]]) << 8) +
+                                        ((Int32)(tag.data[offset + tag.byte_order.int32_order[2]]) << 16) +
+                                        ((UInt32)(tag.data[offset + tag.byte_order.int32_order[3]]) << 24));
+
+                        tag.status_ = PLCTAG_STATUS_OK;
+                    }
+                    else
+                    {
+                        //pdebug(DEBUG_WARN, "Data offset out of bounds!");
+                        tag.status_ = PLCTAG_ERR_OUT_OF_BOUNDS;
+                    }
+                } while (false) ;
+                tag.api_mutex.mutex_unlock();
+            }
+            else
+            {
+                int rc = plc_tag_get_bit(id, tag.bit);
+
+                /* make sure the response is good. */
+                if (rc >= 0)
+                {
+                    res = (Int32)rc;
+                }
+            }
+
+            //rc_dec(tag);
+
+            return res;
+        }
+
+        public static int plc_tag_get_bit(Int32 id, int offset_bit)
+        {
+            int res = PLCTAG_ERR_OUT_OF_BOUNDS;
+            int real_offset = offset_bit;
+            PlcTag tag = lookup_tag(id);
+
+            //pdebug(DEBUG_SPEW, "Starting.");
+
+            if (tag==null)
+            {
+                //pdebug(DEBUG_WARN, "Tag not found.");
+                return PLCTAG_ERR_NOT_FOUND;
+            }
+
+            /* is there data? */
+            if (tag.data==null)
+            {
+                //pdebug(DEBUG_WARN, "Tag has no data!");
+                tag.status_ = PLCTAG_ERR_NO_DATA;
+                //rc_dec(tag);
+                return PLCTAG_ERR_NO_DATA;
+            }
+
+            /* if this is a single bit, then make sure the offset is the tag bit. */
+            if (tag.is_bit)
+            {
+                real_offset = tag.bit;
+            }
+            else
+            {
+                real_offset = offset_bit;
+            }
+
+            //pdebug(DEBUG_SPEW, "selecting bit %d with offset %d in byte %d (%x).", real_offset, (real_offset % 8), (real_offset / 8), tag->data[real_offset / 8]);
+
+            tag.api_mutex.mutex_lock();
+            do /*
+            critical_block(tag->api_mutex) */
+            {
+                if ((real_offset >= 0) && ((real_offset / 8) < tag.size))
+                {
+                    res = ~/*!!*/(((1 << (real_offset % 8)) & 0xFF) & (tag.data[real_offset / 8]));
+                    tag.status_ = PLCTAG_STATUS_OK;
+                }
+                else
+                {
+                    //pdebug(DEBUG_WARN, "Data offset out of bounds!");
+                    res = PLCTAG_ERR_OUT_OF_BOUNDS;
+                    tag.status_ = PLCTAG_ERR_OUT_OF_BOUNDS;
+                }
+            } while (false);
+            tag.api_mutex.mutex_unlock();
+
+            //rc_dec(tag);
+
+            return res;
+        }
 
     }
 }

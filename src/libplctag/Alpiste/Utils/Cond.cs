@@ -17,7 +17,7 @@ namespace Alpiste.Utils
         Object /*CRITICAL_SECTION*/ cs;
         bool /*CONDITION_VARIABLE*/ cond;
         int flag;
-
+        public bool debug;
 
         public Cond()  // cond_create(cond_p c)
         {
@@ -65,7 +65,7 @@ namespace Alpiste.Utils
         public int cond_wait /*_impl*/(/*const char* func, int line_num, cond_p c,*/ int timeout_ms)
         {
             int rc = Lib.PlcTag.PLCTAG_STATUS_OK;
-            Int64 start_time = DateTime.Now.Millisecond; // time_ms();
+            Int64 start_time = Utils.Milliseconds.ms(); // time_ms();
 
             //pdebug(DEBUG_SPEW, "Starting. Called from %s:%d.", func, line_num);
 
@@ -85,7 +85,7 @@ namespace Alpiste.Utils
             {
                 while (flag == 0)
                 {
-                    Int64 time_left = (Int64)timeout_ms - (DateTime.Now.Millisecond /*time_ms()*/ - start_time);
+                    Int64 time_left = (Int64)timeout_ms - (Utils.Milliseconds.ms() /*time_ms()*/ - start_time);
 
                     if (time_left > 0)
                     {
@@ -131,17 +131,20 @@ namespace Alpiste.Utils
                     }
                 }
 
-                /*if (c->flag)
+                if (flag==1)
                 {
-                    pdebug(DEBUG_SPEW, "Condition var signaled for call at %s:%d.", func, line_num);
-
+                    //pdebug(DEBUG_SPEW, "Condition var signaled for call at %s:%d.", func, line_num);
+                    if (debug)
+                    {
+                        debug = false;
+                    }
                     /* clear the flag now that we've responded. */
-                /*    c->flag = 0;
-                }*/
-                /*else
+                    flag = 0;
+                }
+                else
                 {
-                    pdebug(DEBUG_SPEW, "Condition wait terminated due to error or timeout for call at %s:%d.", func, line_num);
-                }*/
+                    //pdebug(DEBUG_SPEW, "Condition wait terminated due to error or timeout for call at %s:%d.", func, line_num);
+                }
 
 
             }
