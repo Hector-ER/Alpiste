@@ -29,7 +29,10 @@ namespace libplctag
         {
             return Alpiste.Lib.PlcTag.plc_tag_read(tag, timeout);
         } // => plctag.plc_tag_read(tag, timeout);
-        public int plc_tag_write(Int32 tag, int timeout) { return 0; } // => plctag.plc_tag_write(tag, timeout);
+        public int plc_tag_write(Int32 tag, int timeout)
+        {
+            return Alpiste.Lib.PlcTag.plc_tag_write(tag, timeout);
+        } // => plctag.plc_tag_write(tag, timeout);
         public int plc_tag_get_size(Int32 tag) { return 0; }// => plctag.plc_tag_get_size(tag);
         public int plc_tag_set_size(Int32 tag, int new_size) { return 0; } // => plctag.plc_tag_set_size(tag, new_size);
         public int plc_tag_abort(Int32 tag) { return 0;  }// => plctag.plc_tag_abort(tag);
@@ -48,7 +51,10 @@ namespace libplctag
             return Alpiste.Lib.PlcTag.plc_tag_get_int32(tag, offset); 
         } // => plctag.plc_tag_get_int32(tag, offset);
         public int plc_tag_set_uint32(Int32 tag, int offset, UInt32 val) { return 0; } // => plctag.plc_tag_set_uint32(tag, offset, val);
-        public int plc_tag_set_int32(Int32 tag, int offset, Int32 val) { return 0; } // => plctag.plc_tag_set_int32(tag, offset, val);
+        public int plc_tag_set_int32(Int32 tag, int offset, Int32 val) 
+        {
+            return Alpiste.Lib.PlcTag.plc_tag_set_int32(tag, offset, val); 
+        } // => plctag.plc_tag_set_int32(tag, offset, val);
         public float plc_tag_get_float32(Int32 tag, int offset) { return 0; } // => plctag.plc_tag_get_float32(tag, offset);
         public int plc_tag_set_float32(Int32 tag, int offset, float val) { return 0; } // => plctag.plc_tag_set_float32(tag, offset, val);
         public UInt16 plc_tag_get_uint16(Int32 tag, int offset) { return 0; } // => plctag.plc_tag_get_uint16(tag, offset);

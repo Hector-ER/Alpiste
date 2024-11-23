@@ -542,6 +542,302 @@ public class cip_multi_req_header : eip_generico {
 
 }
 
+public class eip_forward_open_request_t:eip_encap
+{
+
+    /* Forward Open Request */
+    /* encap header */
+    //uint16_le encap_command;    /* ALWAYS 0x006f Unconnected Send*/
+    //uint16_le encap_length;   /* packet size in bytes - 24 */
+    //uint32_le encap_session_handle;  /* from session set up */
+    //uint32_le encap_status;          /* always _sent_ as 0 */
+    //uint64_le encap_sender_context;  /* whatever we want to set this to, used for
+    //                                 * identifying responses when more than one
+    //                                 * are in flight at once.
+    //                                 */
+    //uint32_le encap_options;         /* 0, reserved for future use */
+
+    public UInt32 interface_handle_offs = 24;
+
+    /* Interface Handle etc. */
+    public UInt32 interface_handle;      /* ALWAYS 0 */
+    public UInt16 router_timeout;        /* in seconds */
+
+    /* Common Packet Format - CPF Unconnected */
+    public UInt16 cpf_item_count;        /* ALWAYS 2 */
+    public UInt16 cpf_nai_item_type;     /* ALWAYS 0 */
+    public UInt16 cpf_nai_item_length;   /* ALWAYS 0 */
+    public UInt16 cpf_udi_item_type;     /* ALWAYS 0x00B2 - Unconnected Data Item */
+    public UInt16 cpf_udi_item_length;   /* REQ: fill in with length of remaining data. */
+
+    /* CM Service Request - Connection Manager */
+    public UInt32 cm_service_code_offs = 40;
+    public byte cm_service_code;        /* ALWAYS 0x54 Forward Open Request */
+    public byte cm_req_path_size;       /* ALWAYS 2, size in words of path, next field */
+    public byte[] cm_req_path = new byte[4];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+
+    /* Forward Open Params */
+    public byte secs_per_tick;          /* seconds per tick */
+    public byte timeout_ticks;          /* timeout = srd_secs_per_tick * src_timeout_ticks */
+    public UInt32 orig_to_targ_conn_id;  /* 0, returned by target in reply. */
+    public UInt32 targ_to_orig_conn_id;  /* what is _our_ ID for this connection, use ab_connection ptr as id ? */
+    public UInt16 conn_serial_number;    /* our connection ID/serial number */
+        public UInt16 orig_vendor_id;        /* our unique vendor ID */
+    public UInt32 orig_serial_number;    /* our unique serial number */
+    public byte conn_timeout_multiplier;/* timeout = mult * RPI */
+    public byte[] reserved = new byte[3];            /* reserved, set to 0 */
+    public UInt32 orig_to_targ_rpi;      /* us to target RPI - Request Packet Interval in microseconds */
+    public UInt16 orig_to_targ_conn_params; /* some sort of identifier of what kind of PLC we are??? */
+    public UInt32 targ_to_orig_rpi;      /* target to us RPI, in microseconds */
+    public UInt16 targ_to_orig_conn_params; /* some sort of identifier of what kind of PLC the target is ??? */
+    public byte transport_class;        /* ALWAYS 0xA3, server transport, class 3, application trigger */
+    public byte path_size;              /* size of connection path in 16-bit words
+                                     * connection path from MSG instruction.
+                                     *
+                                     * EG LGX with 1756-ENBT and CPU in slot 0 would be:
+                                     * 0x01 - backplane port of 1756-ENBT
+                                     * 0x00 - slot 0 for CPU
+                                     * 0x20 - class
+                                     * 0x02 - MR Message Router
+                                     * 0x24 - instance
+                                     * 0x01 - instance #1.
+                                     */
+
+    //uint8_t conn_path[ZLA_SIZE];    /* connection path as above */
+    public eip_forward_open_request_t() : base() 
+    {
+        /*public const byte*/
+        size += 58;
+        data = new byte[size];
+        for (int i = 0; i < size; i++)
+        {
+            data[i] = 0;
+        }
+        //Array.Fill<byte>(data, 0);
+    }
+
+    override public byte[] getData()
+    {
+        base.getData();
+
+        /*
+        data[0] = (byte)(encap_command & 255);
+        data[1] = (byte)(encap_command >> 8 & 255);
+        data[2] = (byte)(encap_length & 255);
+        data[3] = (byte)(encap_length >> 8 & 255);
+        data[4] = (byte)(encap_session_handle & 255);
+        data[5] = (byte)(encap_session_handle >> 8 & 255);
+        data[6] = (byte)(encap_session_handle >> 16 & 255);
+        data[7] = (byte)(encap_session_handle >> 24 & 255);
+        data[8] = (byte)(encap_status & 255);
+        data[9] = (byte)(encap_status >> 8 & 255);
+        data[10] = (byte)(encap_status >> 16 & 255);
+        data[11] = (byte)(encap_status >> 24 & 255);
+        data[12] = (byte)(encap_sender_context & 255);
+        data[13] = (byte)(encap_sender_context >> 8 & 255);
+        data[14] = (byte)(encap_sender_context >> 16 & 255);
+        data[15] = (byte)(encap_sender_context >> 24 & 255);
+        data[16] = (byte)(encap_sender_context >> 32 & 255);
+        data[17] = (byte)(encap_sender_context >> 40 & 255);
+        data[18] = (byte)(encap_sender_context >> 48 & 255);
+        data[19] = (byte)(encap_sender_context >> 56 & 255);
+        data[20] = (byte)(encap_options & 255);
+        data[21] = (byte)(encap_options >> 8 & 255);
+        data[22] = (byte)(encap_options >> 16 & 255);
+        data[23] = (byte)(encap_options >> 24 & 255);
+        */
+
+
+
+
+        data[24] = (byte)(interface_handle & 255);
+        data[25] = (byte)(interface_handle >> 8 & 255);
+        data[26] = (byte)(interface_handle >> 16 & 255);
+        data[27] = (byte)(interface_handle >> 24 & 255);
+        data[28] = (byte)(router_timeout & 255);        /* in seconds */
+        data[29] = (byte)(router_timeout >> 8 & 255);        /* in seconds */
+        data[30] = (byte)(cpf_item_count & 255);        /* ALWAYS 2 */
+        data[31] = (byte)(cpf_item_count >> 8 & 255);        /* ALWAYS 2 */
+        data[32] = (byte)(cpf_nai_item_type & 255);     /* ALWAYS 0 */
+        data[33] = (byte)(cpf_nai_item_type >> 8 & 255);     /* ALWAYS 0 */
+        data[34] = (byte)(cpf_nai_item_length & 255);   /* ALWAYS 0 */
+        data[35] = (byte)(cpf_nai_item_length >> 8 & 255);   /* ALWAYS 0 */
+        data[36] = (byte)(cpf_udi_item_type & 255);     /* ALWAYS 0x00B2 - Unconnected Data Item */
+        data[37] = (byte)(cpf_udi_item_type >> 8 & 255);     /* ALWAYS 0x00B2 - Unconnected Data Item */
+        data[38] = (byte)(cpf_udi_item_length & 255);   /* REQ: fill in with length of remaining data. */
+        data[39] = (byte)(cpf_udi_item_length >> 8 & 255);   /* REQ: fill in with length of remaining data. */
+
+        /* CM Service Request - Connection Manager */
+        data[40] = cm_service_code;        /* ALWAYS 0x54 Forward Open Request */
+        data[41] = cm_req_path_size;       /* ALWAYS 2, size in words of path, next field */
+        data[42] = cm_req_path[0];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+        data[43] = cm_req_path[1];        /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+        data[44] = cm_req_path[2];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+        data[45] = cm_req_path[3];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+
+        /* Forward Open Params */
+        data[46] = secs_per_tick;          /* seconds per tick */
+        data[47] = timeout_ticks;          /* timeout = srd_secs_per_tick * src_timeout_ticks */
+        data[48] = (byte)(orig_to_targ_conn_id & 255);  /* 0, returned by target in reply. */
+        data[49] = (byte)(orig_to_targ_conn_id >> 8 & 255);  /* 0, returned by target in reply. */
+        data[50] = (byte)(orig_to_targ_conn_id >> 16 & 255);  /* 0, returned by target in reply. */
+        data[51] = (byte)(orig_to_targ_conn_id >> 24 & 255);  /* 0, returned by target in reply. */
+        data[52] = (byte)(targ_to_orig_conn_id & 255);  /* what is _our_ ID for this connection, use ab_connection ptr as id ? */
+        data[53] = (byte)(targ_to_orig_conn_id >> 8 & 255);  /* what is _our_ ID for this connection, use ab_connection ptr as id ? */
+        data[54] = (byte)(targ_to_orig_conn_id >> 16 & 255);  /* what is _our_ ID for this connection, use ab_connection ptr as id ? */
+        data[55] = (byte)(targ_to_orig_conn_id >> 24 & 255);  /* what is _our_ ID for this connection, use ab_connection ptr as id ? */
+        data[56] = (byte)(conn_serial_number & 255);    /* our connection ID/serial number ?? */
+        data[57] = (byte)(conn_serial_number >> 8 & 255);    /* our connection ID/serial number ?? */
+        data[58] = (byte)(orig_vendor_id & 255);        /* our unique vendor ID */
+        data[59] = (byte)(orig_vendor_id >> 8 & 255);        /* our unique vendor ID */
+        data[60] = (byte)(orig_serial_number & 255);    /* our unique serial number */
+        data[61] = (byte)(orig_serial_number >> 8 & 255);    /* our unique serial number */
+        data[62] = (byte)(orig_serial_number >> 16 & 255);    /* our unique serial number */
+        data[63] = (byte)(orig_serial_number >> 24 & 255);    /* our unique serial number */  
+
+        
+        data[64] = conn_timeout_multiplier;/* timeout = mult * RPI */
+        data[65] = reserved[0];            /* reserved, set to 0 */
+        data[66] = reserved[1];            /* reserved, set to 0 */
+        data[67] = reserved[2];            /* reserved, set to 0 */
+
+       
+
+        data[68] = (byte)(orig_to_targ_rpi & 255);      /* us to target RPI - Request Packet Interval in microseconds */
+        data[69] = (byte)(orig_to_targ_rpi >> 8 & 255);      /* us to target RPI - Request Packet Interval in microseconds */
+        data[70] = (byte)(orig_to_targ_rpi >> 16 & 255);      /* us to target RPI - Request Packet Interval in microseconds */
+        data[71] = (byte)(orig_to_targ_rpi >> 24 & 255);      /* us to target RPI - Request Packet Interval in microseconds */
+        data[72] = (byte)(orig_to_targ_conn_params & 255); /* some sort of identifier of what kind of PLC we are??? */
+        data[73] = (byte)(orig_to_targ_conn_params >> 8 & 255); /* some sort of identifier of what kind of PLC we are??? */
+        data[74] = (byte)(targ_to_orig_rpi & 255);      /* target to us RPI, in microseconds */
+        data[75] = (byte)(targ_to_orig_rpi >> 8 & 255);      /* target to us RPI, in microseconds */
+        data[76] = (byte)(targ_to_orig_rpi >> 16 & 255);      /* target to us RPI, in microseconds */
+        data[77] = (byte)(targ_to_orig_rpi >> 24 & 255);      /* target to us RPI, in microseconds */
+        data[78] = (byte)(targ_to_orig_conn_params & 255); /* some sort of identifier of what kind of PLC the target is ??? */
+        data[79] = (byte)(targ_to_orig_conn_params >> 8 & 255); /* some sort of identifier of what kind of PLC the target is ??? */
+        data[80] = transport_class;        /* ALWAYS 0xA3, server transport, class 3, application trigger */
+        data[81] = path_size;              /* size of connection path in 16-bit words
+                                     * connection path from MSG instruction.
+                                     *
+                                     * EG LGX with 1756-ENBT and CPU in slot 0 would be:
+                                     * 0x01 - backplane port of 1756-ENBT
+                                     * 0x00 - slot 0 for CPU
+                                     * 0x20 - class
+                                     * 0x02 - MR Message Router
+                                     * 0x24 - instance
+                                     * 0x01 - instance #1.
+                                     */
+
+        return data;
+    }
+
+    public override byte[] encodedData()
+    {
+        throw new NotImplementedException();
+    }
+
+    public override void setData(byte[] data)
+    {
+        //throw new NotImplementedException();
+        //        eip_encap e = new eip_encap();
+        //Array.Copy(data, 0, this.data, 0, size);
+        base.setData(data);
+
+        /*this.encap_command = (UInt16)(data[0] + ((UInt16)data[1] << 8));
+        this.encap_length = (UInt16)(data[2] + ((UInt16)data[3] << 8));
+        encap_session_handle = (UInt32)(data[4] + ((UInt32)data[5] << 8) + ((UInt32)data[6] << 16) +
+            ((UInt32)data[7] << 24));
+        encap_status = (UInt32)(data[8] + ((UInt32)data[9] << 8) + ((UInt32)data[10] << 16) +
+            ((UInt32)data[11] << 24));
+        encap_sender_context = (UInt64)(data[12] + ((UInt64)data[13] << 8) + ((UInt64)data[14] << 16) +
+            ((UInt64)data[15] << 24) + ((UInt64)data[16] << 32) + ((UInt64)data[17] << 40) + ((UInt64)data[18] << 48) +
+            ((UInt64)data[19] << 56));
+        encap_options = (UInt32)(data[20] + ((UInt32)data[21] << 8) + ((UInt32)data[22] << 16) +
+            ((UInt32)data[23] << 24));*/
+
+
+        /* Interface Handle etc. */
+
+        interface_handle = (UInt32)(data[24] + ((UInt32)data[25] << 8) + ((UInt32)data[26] << 16) +
+            ((UInt32)data[27] << 24));       /* ALWAYS 0 */
+        router_timeout = (UInt16)(data[28] + ((UInt16)data[29] << 8));        /* in seconds */
+
+        /* Common Packet Format - CPF Unconnected */
+        cpf_item_count = (UInt16)(data[30] + ((UInt16)data[31] << 8));        /* ALWAYS 2 */
+        cpf_nai_item_type = (UInt16)(data[32] + ((UInt16)data[33] << 8));     /* ALWAYS 0 */
+        cpf_nai_item_length = (UInt16)(data[34] + ((UInt16)data[35] << 8));   /* ALWAYS 0 */
+        cpf_udi_item_type = (UInt16)(data[36] + ((UInt16)data[37] << 8));     /* ALWAYS 0x00B2 - Unconnected Data Item */
+        cpf_udi_item_length = (UInt16)(data[38] + ((UInt16)data[39] << 8));   /* REQ: fill in with length of remaining data. */
+
+        /* CM Service Request - Connection Manager */
+        cm_service_code = data[40];        /* ALWAYS 0x54 Forward Open Request */
+        cm_req_path_size = data[41];       /* ALWAYS 2, size in words of path, next field */
+        cm_req_path[0] = data[42];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+        cm_req_path[1] = data[43];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+        cm_req_path[2] = data[44];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+        cm_req_path[3] = data[45];         /* ALWAYS 0x20,0x06,0x24,0x01 for CM, instance 1*/
+
+        /* Forward Open Params */
+        secs_per_tick = data[46];          /* seconds per tick */
+        timeout_ticks = data[47];          /* timeout = srd_secs_per_tick * src_timeout_ticks */
+        orig_to_targ_conn_id = (UInt32)(data[48] + ((UInt32)data[49] << 8) + ((UInt32)data[50] << 16) +
+            ((UInt32)data[51] << 24));  /* 0, returned by target in reply. */
+        targ_to_orig_conn_id = (UInt32)(data[52] + ((UInt32)data[53] << 8) + ((UInt32)data[54] << 16) +
+            ((UInt32)data[55] << 24));  /* what is _our_ ID for this connection, use ab_connection ptr as id ? */
+        conn_serial_number = (UInt16)(data[56] + ((UInt16)data[57] << 8));    /* our connection ID/serial number ?? */
+        orig_vendor_id = (UInt16)(data[58] + ((UInt16)data[59] << 8));        /* our unique vendor ID */
+        orig_serial_number = (UInt32)(data[60] + ((UInt32)data[61] << 8) + ((UInt32)data[62] << 16) +
+            ((UInt32)data[63] << 24));    /* our unique serial number */
+        conn_timeout_multiplier = data[64];/* timeout = mult * RPI */
+        reserved[0] = data[65];            /* reserved, set to 0 */
+        reserved[1] = data[66];            /* reserved, set to 0 */
+        reserved[2] = data[67];            /* reserved, set to 0 */
+        orig_to_targ_rpi = (UInt32)(data[68] + ((UInt32)data[69] << 8) + ((UInt32)data[70] << 16) +
+            ((UInt32)data[71] << 24));      /* us to target RPI - Request Packet Interval in microseconds */
+        orig_to_targ_conn_params = (UInt16)(data[72] + ((UInt16)data[73] << 8)); /* some sort of identifier of what kind of PLC we are??? */
+        targ_to_orig_rpi = (UInt32)(data[74] + ((UInt32)data[75] << 8) + ((UInt32)data[76] << 16) +
+            ((UInt32)data[77] << 24));      /* target to us RPI, in microseconds */
+        targ_to_orig_conn_params = (UInt16)(data[78] + ((UInt16)data[79] << 8)); /* some sort of identifier of what kind of PLC the target is ??? */
+        transport_class = data[80];        /* ALWAYS 0xA3, server transport, class 3, application trigger */
+        path_size = data[81];              /* size of connection path in 16-bit words
+                                     * connection path from MSG instruction.
+                                     *
+                                     * EG LGX with 1756-ENBT and CPU in slot 0 would be:
+                                     * 0x01 - backplane port of 1756-ENBT
+                                     * 0x00 - slot 0 for CPU
+                                     * 0x20 - class
+                                     * 0x02 - MR Message Router
+                                     * 0x24 - instance
+                                     * 0x01 - instance #1.
+                                     */
+
+        getData();
+
+        //        return e;
+
+        //        throw new NotImplementedException();
+    }
+    static public eip_encap createFromReq(Request req)
+    {
+        throw new NotImplementedException();
+
+        //Array.Copy(req.data, this.data, req.data.Length);
+        return createFromData(req.data);
+    }
+    static public eip_encap createFromData(byte[] data)
+    {
+        throw new NotImplementedException();
+
+        eip_encap res = new eip_encap();
+
+        //Array.Copy(data, res.data, data.Length);
+        res.setData(data);
+        return res;
+    }
+
+}
+
+
 public class eip_forward_open_request_ex_t : eip_encap
 {
     /* Forward Open Request Extended */
@@ -615,7 +911,7 @@ public class eip_forward_open_request_ex_t : eip_encap
         //Array.Fill<byte>(data, 0);
     }
 
-    virtual public byte[] getData()
+    override public byte[] getData()
     {
         base.getData();
 

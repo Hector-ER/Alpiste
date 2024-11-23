@@ -2733,5 +2733,255 @@ namespace Alpiste.Lib
             return res;
         }
 
+        public static int plc_tag_set_int32(Int32 id, int offset, Int32 ival)
+        {
+            int rc = PLCTAG_STATUS_OK;
+            PlcTag tag = lookup_tag(id);
+            UInt32 val = (UInt32)ival;
+
+            //pdebug(DEBUG_SPEW, "Starting.");
+
+            if (tag==null)
+            {
+                //pdebug(DEBUG_WARN, "Tag not found.");
+                return PLCTAG_ERR_NOT_FOUND;
+            }
+
+            /* is there data? */
+            if (tag.data == null)
+            {
+                //pdebug(DEBUG_WARN, "Tag has no data!");
+                tag.status_ = PlcTag.PLCTAG_ERR_NO_DATA;
+                //rc_dec(tag);
+                return PlcTag.PLCTAG_ERR_NO_DATA;
+            }
+
+            if (!tag.is_bit)
+            {
+                tag.api_mutex.mutex_lock();
+                do
+                /*critical_block(tag->api_mutex)*/ {
+                    if ((offset >= 0) && (offset + (4 /*(int)sizeof(int32_t)*/) <= tag.size))
+                    {
+                        if (tag.auto_sync_write_ms > 0)
+                        {
+                            tag.tag_is_dirty = true;
+                        }
+
+                        tag.data[offset + tag.byte_order.int32_order[0]] = (byte)((val >> 0) & 0xFF);
+                        tag.data[offset + tag.byte_order.int32_order[1]] = (byte)((val >> 8) & 0xFF);
+                        tag.data[offset + tag.byte_order.int32_order[2]] = (byte)((val >> 16) & 0xFF);
+                        tag.data[offset + tag.byte_order.int32_order[3]] = (byte)((val >> 24) & 0xFF);
+
+                        tag.status_ = PLCTAG_STATUS_OK;
+                    }
+                    else
+                    {
+                        //pdebug(DEBUG_WARN, "Data offset out of bounds!");
+                        tag.status_ = PLCTAG_ERR_OUT_OF_BOUNDS;
+                        rc = PLCTAG_ERR_OUT_OF_BOUNDS;
+                    }
+                } while (false);
+                tag.api_mutex.mutex_lock();
+
+            }
+            else
+            {
+                if (val==0)
+                {
+                    rc = plc_tag_set_bit(id, 0, 0);
+                }
+                else
+                {
+                    rc = plc_tag_set_bit(id, 0, 1);
+                }
+            }
+
+            //rc_dec(tag);
+
+            return rc;
+        }
+
+
+        /*
+ * plc_tag_write()
+ *
+ * This function calls through the vtable in the passed tag to call
+ * the protocol-specific implementation.  That starts the write operation.
+ * If there is a timeout passed, then this routine waits for either
+ * a timeout or an error.
+ *
+ * The status of the operation is returned.
+ */
+
+        public static int plc_tag_write(Int32 id, int timeout)
+        {
+            int rc = PLCTAG_STATUS_OK;
+            PlcTag tag = lookup_tag(id);
+            int is_done = 0;
+
+            //pdebug(DEBUG_INFO, "Starting.");
+
+            if (tag==null)
+            {
+                //pdebug(DEBUG_WARN, "Tag not found.");
+                return PLCTAG_ERR_NOT_FOUND;
+            }
+
+            if (timeout < 0)
+            {
+                //pdebug(DEBUG_WARN, "Timeout must not be negative!");
+                //rc_dec(tag);
+                return PLCTAG_ERR_BAD_PARAM;
+            }
+
+            tag.api_mutex.mutex_lock();
+            do
+            /*critical_block(tag->api_mutex)*/
+            {
+                if (tag.read_in_flight || tag.write_in_flight)
+                {
+                    //pdebug(DEBUG_WARN, "Tag already has an operation in flight!");
+                    is_done = 1;
+                    rc = PLCTAG_ERR_BUSY;
+                    break;
+                }
+
+                /* a write is now in flight. */
+                tag.write_in_flight = true;
+                tag.status_ = PLCTAG_STATUS_OK;
+
+                /*
+                 * This needs to be done before we raise the event below in case the user code
+                 * tries to do something tricky like abort the write.   In that case, the condition
+                 * variable will be set by the abort.   So we have to clear it here and then see
+                 * if it gets raised afterward.
+                 */
+                tag.tag_cond_wait.cond_clear(); // tag->tag_cond_wait);
+
+                /*
+                 * This must be raised _before_ we start the write to enable
+                 * application code to fill in the tag data buffer right before
+                 * we start the write process.
+                 */
+                //tag_raise_event(tag, PLCTAG_EVENT_WRITE_STARTED, tag->status);
+                tag.plc_tag_generic_handle_event_callbacks();
+
+                /* the protocol implementation does not do the timeout. */
+                /*if (tag->vtable && tag->vtable->write)
+                {
+                    rc = tag->vtable->write(tag);
+                }
+                else
+                {
+                    pdebug(DEBUG_WARN, "Attempt to call write on a tag that does not support writes.");
+                    rc = PLCTAG_ERR_NOT_IMPLEMENTED;
+                }*/
+                tag.write();
+
+                /* if not pending then check for success or error. */
+                if (rc != PLCTAG_STATUS_PENDING)
+                {
+                    if (rc != PLCTAG_STATUS_OK)
+                    {
+                        /* not pending and not OK, so error. Abort and clean up. */
+
+                        //pdebug(DEBUG_WARN, "Response from write command returned error %s!", plc_tag_decode_error(rc));
+
+                        /*if (tag->vtable && tag->vtable->abort)
+                        {
+                            tag->vtable->abort(tag);
+                        }*/
+                        tag.abort();
+                    }
+
+                    tag.write_in_flight = false;
+                    is_done = 1;
+                    break;
+                }
+            } while(false);/* end of api mutex block */
+
+            tag.api_mutex.mutex_unlock();
+
+            /*
+             * if there is a timeout, then wait until we get
+             * an error or we timeout.
+             */
+            if (is_done==0 && timeout > 0)
+            {
+                Int64 start_time = Alpiste.Utils.Milliseconds.ms(); // time_ms();
+                Int64 end_time = start_time + timeout;
+
+                /* wake up the tickler in case it is needed to write the tag. */
+                plc_tag_tickler_wake();
+
+                /* we loop as long as we have time left to wait. */
+                do
+                {
+                    Int64 timeout_left = end_time - Alpiste.Utils.Milliseconds.ms(); // time_ms();
+
+                    /* clamp the timeout left to non-negative int range. */
+                    if (timeout_left < 0)
+                    {
+                        timeout_left = 0;
+                    }
+
+                    if (timeout_left > int.MaxValue /*INT_MAX*/)
+                    {
+                        timeout_left = 100; /* MAGIC, only wait 100ms in this weird case. */
+                    }
+
+                    /* wait for something to happen */
+                    rc = tag.tag_cond_wait.cond_wait(/*tag->tag_cond_wait,*/ (int)timeout_left);
+                    if (rc != PLCTAG_STATUS_OK)
+                    {
+                        //pdebug(DEBUG_WARN, "Error %s while waiting for tag write to complete!", plc_tag_decode_error(rc));
+                        plc_tag_abort((int)id);
+
+                        break;
+                    }
+
+                    /* get the tag status. */
+                    rc = plc_tag_status((int)id);
+
+                    /* check to see if there was an error during tag creation. */
+                    if (rc != PLCTAG_STATUS_OK && rc != PLCTAG_STATUS_PENDING)
+                    {
+                        //pdebug(DEBUG_WARN, "Error %s while trying to write tag!", plc_tag_decode_error(rc));
+                        plc_tag_abort((int)id);
+                    }
+                } while (rc == PLCTAG_STATUS_PENDING && Alpiste.Utils.Milliseconds.ms() /*time_ms()*/ < end_time);
+
+                /* the write is not in flight anymore. */
+                tag.api_mutex.mutex_lock();
+                do /*
+                critical_block(tag->api_mutex)*/
+                {
+                    tag.write_in_flight = false;
+                    tag.write_complete = false;
+                    is_done = 1;
+                } while (false);
+                tag.api_mutex.mutex_unlock();
+
+                //pdebug(DEBUG_INFO, "Write finshed with elapsed time %" PRId64 "ms", (time_ms() - start_time));
+            }
+
+            if (is_done == 1)
+            {
+                /*critical_block(tag->api_mutex) {
+                    tag_raise_event(tag, PLCTAG_EVENT_WRITE_COMPLETED, (int8_t)rc);
+                }*/
+            }
+
+            /* fire any events that are pending. */
+            tag.plc_tag_generic_handle_event_callbacks();
+
+            //rc_dec(tag);
+
+            //pdebug(DEBUG_INFO, "Done: status = %s.", plc_tag_decode_error(rc));
+
+            return rc;
+        }
+
     }
 }

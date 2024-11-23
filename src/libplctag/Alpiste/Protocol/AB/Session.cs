@@ -788,7 +788,7 @@ namespace Alpiste.Protocol.AB
         
         static void session_handler(Object arg)
         {
-            Thread.Sleep(1000);
+            //Thread.Sleep(1000);
             Session /*ab_session_p*/ session = (Session) arg;
             int rc = PlcTag.PLCTAG_STATUS_OK;
             session_state_t state = session_state_t.SESSION_OPEN_SOCKET_START;
@@ -2159,7 +2159,7 @@ namespace Alpiste.Protocol.AB
 
             if (/*session->*/only_use_old_forward_open)
             {
- //*HR*               rc = send_old_forward_open_request(session);
+                rc = send_old_forward_open_request(/*session*/);
             }
             else
             {
@@ -2170,6 +2170,113 @@ namespace Alpiste.Protocol.AB
 
             return rc;
         }
+
+        int send_old_forward_open_request(/*ab_session_p session*/)
+        {
+            eip_forward_open_request_t fo = null;
+            int data;
+            int rc = PlcTag.PLCTAG_STATUS_OK;
+
+            //pdebug(DEBUG_INFO, "Starting");
+
+            //mem_set(session->data, 0, (int)(sizeof(*fo) + session->conn_path_size));
+
+            //fo = (eip_forward_open_request_t*)(session->data);
+            fo = new eip_forward_open_request_t();
+
+            /* point to the end of the struct */
+            //data = (session->data) + sizeof(eip_forward_open_request_t);
+            data = fo.size;
+
+            /* set up the path information. */
+            //mem_copy(data, session->conn_path, session->conn_path_size);
+            if (conn_path_size > 0)
+            {
+
+                Array.Copy(conn_path, 0, this.data, fo.size, conn_path_size);
+            }
+            data += /*session->*/conn_path_size;
+
+
+            /* fill in the static parts */
+
+            /* encap header parts */
+            fo.encap_command = /*h2le16(*/Defs.AB_EIP_UNCONNECTED_SEND; /* 0x006F EIP Send RR Data command */
+            fo.encap_length = /*h2le16(*/(UInt16)(data - fo.interface_handle_offs); /*(uint8_t*)(&fo->interface_handle))); /* total length of packet except for encap header */
+            fo.encap_session_handle = /*h2le32(session->*/session_handle/*)*/;
+            fo.encap_sender_context = /*h2le64(++session->*/++session_seq_id/*)*/;
+            fo.router_timeout = 1; // h2le16(1);                       /* one second is enough ? */
+
+            /* CPF parts */
+            fo.cpf_item_count = 2; // h2le16(2);                  /* ALWAYS 2 */
+            fo.cpf_nai_item_type = /*h2le16(*/Defs.AB_EIP_ITEM_NAI; /* null address item type */
+            fo.cpf_nai_item_length = 0; //h2le16(0);             /* no data, zero length */
+            fo.cpf_udi_item_type = /*h2le16(*/Defs.AB_EIP_ITEM_UDI;/*); /* unconnected data item, 0x00B2 */
+            fo.cpf_udi_item_length = /*h2le16(*/(UInt16)(data - fo.cm_service_code_offs); // (uint8_t*)(&fo->cm_service_code))); /* length of remaining data in UC data item */
+
+
+            
+            /* Connection Manager parts */
+            fo.cm_service_code = Defs.AB_EIP_CMD_FORWARD_OPEN; /* 0x54 Forward Open Request or 0x5B for Forward Open Extended */
+            fo.cm_req_path_size = 2;                      /* size of path in 16-bit words */
+            fo.cm_req_path[0] = 0x20;                     /* class */
+            fo.cm_req_path[1] = 0x06;                     /* CM class */
+            fo.cm_req_path[2] = 0x24;                     /* instance */
+            fo.cm_req_path[3] = 0x01;                     /* instance 1 */
+
+            /* Forward Open Params */
+            fo.secs_per_tick = Defs.AB_EIP_SECS_PER_TICK;         /* seconds per tick, no used? */
+            fo.timeout_ticks = Defs.AB_EIP_TIMEOUT_TICKS;         /* timeout = srd_secs_per_tick * src_timeout_ticks, not used? */
+            fo.orig_to_targ_conn_id = 0; // h2le32(0);             /* is this right?  Our connection id on the other machines? */
+            fo.targ_to_orig_conn_id = /*h2le32(session->*/orig_connection_id;/*); /* Our connection id in the other direction. */
+            /* this might need to be globally unique */
+            fo.conn_serial_number = /*h2le16(++(session->*/++conn_serial_number; /* our connection SEQUENCE number. */
+            fo.orig_vendor_id = /*h2le16(*/Defs.AB_EIP_VENDOR_ID;               /* our unique :-) vendor ID */
+            fo.orig_serial_number = /*h2le32(*/Defs.AB_EIP_VENDOR_SN;           /* our serial number. */
+            fo.conn_timeout_multiplier = Defs.AB_EIP_TIMEOUT_MULTIPLIER;     /* timeout = mult * RPI */
+
+            fo.orig_to_targ_rpi = /*h2le32(*/Defs.AB_EIP_RPI; /* us to target RPI - Request Packet Interval in microseconds */
+                       
+
+            /* screwy logic if this is a DH+ route! */
+            if ((/*session->*/plc_type == PlcType.AB_PLC_PLC5 || /*session->*/plc_type == PlcType.AB_PLC_SLC || 
+                /*session->*/plc_type == PlcType.AB_PLC_MLGX) && is_dhp==1)
+            {
+                fo.orig_to_targ_conn_params = /*h2le16(*/Defs.AB_EIP_PLC5_PARAM;
+            }
+            else
+            {
+                fo.orig_to_targ_conn_params = (ushort) (/*h2le16(*/Defs.AB_EIP_CONN_PARAM | /*session->*/max_payload_guess); /* packet size and some other things, based on protocol/cpu type */
+            }
+
+            fo.targ_to_orig_rpi = /*h2le32(*/Defs.AB_EIP_RPI; //); /* target to us RPI - not really used for explicit messages? */
+
+            /* screwy logic if this is a DH+ route! */
+            if ((/*session->*/plc_type == PlcType.AB_PLC_PLC5 || /*session->*/plc_type == PlcType.AB_PLC_SLC ||
+                /*session->*/plc_type == PlcType.AB_PLC_MLGX) && /*session->*/is_dhp == 1)
+            {
+                fo.targ_to_orig_conn_params = /*h2le16(*/Defs.AB_EIP_PLC5_PARAM;
+            }
+            else
+            {
+                fo.targ_to_orig_conn_params = (ushort)(/*h2le16(*/Defs.AB_EIP_CONN_PARAM | /*session->*/max_payload_guess); /* packet size and some other things, based on protocol/cpu type */
+            }
+
+            fo.transport_class = Defs.AB_EIP_TRANSPORT_CLASS_T3; /* 0xA3, server transport, class 3, application trigger */
+            fo.path_size = (byte)(/*session->*/conn_path_size / 2); /* size in 16-bit words */
+
+            
+            /* set the size of the request */
+            data_size = (UInt32)data; // - (session->data))
+            Array.Copy(fo.getData(), 0, this.data, 0, fo.size);
+
+            rc = send_eip_request(/*session,*/ 0);
+
+            //pdebug(DEBUG_INFO, "Done");
+
+            return rc;
+        }
+
 
         /* new version of Forward Open */
         int send_extended_forward_open_request(/*ab_session_p session*/)
