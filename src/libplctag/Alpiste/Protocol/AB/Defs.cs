@@ -1384,9 +1384,9 @@ public class eip_cip_co_resp : eip_encap
     //uint8_t resp_data[ZLA_SIZE];
 
 
-    public byte[] data = new byte[50];
+    //public byte[] data = new byte[50];
 
-    public int size = 50;
+    //public int size = 50;
     static public int base_size = 50;
 
     public eip_cip_co_resp() : base() //uint8_t conn_path[ZLA_SIZE];    /* connection path as above */

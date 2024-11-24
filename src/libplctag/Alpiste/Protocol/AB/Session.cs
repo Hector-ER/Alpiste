@@ -2747,6 +2747,27 @@ namespace Alpiste.Protocol.AB
 
         }
 
+        public int session_get_max_payload(/*ab_session_p session*/)
+        {
+            int result = 0;
+
+            /*if (!session)
+            {
+                pdebug(DEBUG_WARN, "Called with null session pointer!");
+                return 0;
+            }*/
+
+            //critical_block(session->mutex) {
+            lock (session_mutex)
+            {
+                result = GET_MAX_PAYLOAD_SIZE(); // (session);
+            }//}
+
+            //pdebug(DEBUG_DETAIL, "max payload size is %d bytes.", result);
+
+            return result;
+        }
+
 
     }
 

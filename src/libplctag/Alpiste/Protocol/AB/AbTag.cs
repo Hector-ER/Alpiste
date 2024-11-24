@@ -15,6 +15,7 @@ using System.Security.Cryptography;
 using System.IO.IsolatedStorage;
 //using System.Net.Http.Headers;
 using System.ComponentModel.Design;
+using System.Drawing;
 
 
 namespace Alpiste.Protocol.AB
@@ -83,7 +84,7 @@ namespace Alpiste.Protocol.AB
         override public int read() { return tag_read_start(); }
         override public int status() { return ab_tag_status(); }
         override public int tickler() { return tag_tickler(); }
-        override public int write() { return 0; }
+        override public int write() { return tag_write_start(); }
 
         override public int wake_plc() { return 0; }
         
@@ -153,7 +154,7 @@ namespace Alpiste.Protocol.AB
 
 
            /* pointers back to session */
-           Session session;
+        public   Session session;
         //   int use_connected_msg;
 
         /* this contains the encoded name */
@@ -188,7 +189,7 @@ namespace Alpiste.Protocol.AB
         /* requests */
         public int pre_write_read;
         public int first_read;
-        Request /*ab_request_p*/ req;
+        public Request /*ab_request_p*/ req;
         public int offset;
 
         public int allow_packing;
@@ -1468,7 +1469,9 @@ namespace Alpiste.Protocol.AB
                             //pdebug_dump_bytes(DEBUG_DETAIL, data, type_length);
 
                             encoded_type_info_size = type_length;
-           //*HR*                 mem_copy(tag->encoded_type_info, data, tag->encoded_type_info_size);
+                            //mem_copy(tag->encoded_type_info, data, tag->encoded_type_info_size);
+                            encoded_type_info = new byte[encoded_type_info_size];
+                            Array.Copy(data, 0, encoded_type_info, 0, encoded_type_info_size);
                         }
                         else
                         {
@@ -2043,6 +2046,314 @@ namespace Alpiste.Protocol.AB
 
             return PLCTAG_STATUS_PENDING;
 
+        }
+
+        /*
+* tag_write_common_start
+*
+* This must be called from one thread alone, or while the tag mutex is
+* locked.
+*
+* The routine starts the process of writing to a tag.
+*/
+
+        public int tag_write_start(/*ab_tag_p tag*/)
+        {
+            int rc = PLCTAG_STATUS_OK;
+
+            //pdebug(DEBUG_INFO, "Starting");
+
+            if (read_in_progress != 0 || write_in_progress != 0)
+            {
+                //pdebug(DEBUG_WARN, "Read or write operation already in flight!");
+                return PLCTAG_ERR_BUSY;
+            }
+
+            /* the write is now in flight */
+            write_in_progress = 1;
+
+            /*
+             * if the tag has not been read yet, read it.
+             *
+             * This gets the type data and sets up the request
+             * buffers.
+             */
+
+            if (first_read != 0)
+            {
+                //pdebug(DEBUG_DETAIL, "No read has completed yet, doing pre-read to get type information.");
+
+                pre_write_read = 1;
+                write_in_progress = 0; /* temporarily mask this off */
+
+                return tag_read_start();
+            }
+
+            if (rc != PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_WARN, "Unable to calculate write sizes!");
+                write_in_progress = 0;
+
+                return rc;
+            }
+
+            if (use_connected_msg)
+            {
+                rc = build_write_request_connected(offset);
+            }
+            else
+            {
+                //*HR*               rc = build_write_request_unconnected(tag, tag->offset);
+            }
+
+            if (rc != PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_WARN, "Unable to build write request!");
+                write_in_progress = 0;
+
+                return rc;
+            }
+
+            //pdebug(DEBUG_INFO, "Done.");
+
+            return PLCTAG_STATUS_PENDING;
+        }
+
+        int build_write_request_connected(/*ab_tag_p tag,*/ int byte_offset)
+        {
+            int rc = PLCTAG_STATUS_OK;
+            eip_cip_co_req cip = null;
+            int data = 0;
+            Request /*ab_request_p*/ req = null;
+            int multiple_requests = 0;
+            int write_size = 0;
+            int str_pad_to_multiple_bytes = 1;
+
+            //pdebug(DEBUG_INFO, "Starting.");
+
+            if (is_bit)
+            {
+                //*HR*                return build_write_bit_request_connected(tag);
+            }
+
+            /* get a request buffer */
+            rc = session.session_create_request(/*tag->session, */tag_id, ref req);
+            if (rc != PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_ERROR, "Unable to get new request.  rc=%d", rc);
+                return rc;
+            }
+
+            rc = calculate_write_data_per_packet();
+            if (rc != PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_ERROR, "Unable to calculate valid write data per packet!.  rc=%s", plc_tag_decode_error(rc));
+                return rc;
+            }
+
+            if (write_data_per_packet < size)
+            {
+                multiple_requests = 1;
+            }
+
+            // if(multiple_requests && tag->plc_type == AB_PLC_OMRON_NJNX) {
+            //     pdebug(DEBUG_WARN, "Tag too large for unfragmented request on Omron PLC!");
+            //     return PLCTAG_ERR_TOO_LARGE;
+            // }
+
+            //cip = (eip_cip_co_req*)(req->data);
+            cip = new eip_cip_co_req();
+
+            /* point to the end of the struct */
+            data = eip_cip_co_req.BASE_SIZE;// (req->data) + sizeof(eip_cip_co_req);
+
+            /*
+             * set up the embedded CIP read packet
+             * The format is:
+             *
+             * uint8_t cmd
+             * LLA formatted name
+             * data type to write
+             * uint16_t # of elements to write
+             * data to write
+             */
+
+            /*
+             * set up the CIP Read request type.
+             * Different if more than one request.
+             *
+             * This handles a bug where attempting fragmented requests
+             * does not appear to work with a single boolean.
+             */
+            //*data = (multiple_requests) ? AB_EIP_CMD_CIP_WRITE_FRAG : AB_EIP_CMD_CIP_WRITE;
+            byte aux = (multiple_requests != 0) ? Defs.AB_EIP_CMD_CIP_WRITE_FRAG : Defs.AB_EIP_CMD_CIP_WRITE;
+            req.data[data] = aux;
+            data++;
+
+            /* copy the tag name into the request */
+            //mem_copy(data, tag->encoded_name, tag->encoded_name_size);
+            Array.Copy(encoded_name, 0, req.data, data, encoded_name_size);
+            data += encoded_name_size;
+
+            /* copy encoded type info */
+            if (encoded_type_info_size != 0)
+            {
+                //mem_copy(data, tag->encoded_type_info, tag->encoded_type_info_size);
+                Array.Copy(encoded_type_info, 0, req.data, data, encoded_type_info_size);
+                data += encoded_type_info_size;
+            }
+            else
+            {
+                //pdebug(DEBUG_WARN, "Data type unsupported!");
+                return PLCTAG_ERR_UNSUPPORTED;
+            }
+
+            /* copy the item count, little endian */
+            //*((uint16_le*)data) = h2le16((uint16_t)(tag->elem_count));
+            req.data[data] = (byte)(elem_count & 255);
+            req.data[data + 1] = (byte)(elem_count >> 8);
+            data += 2; // sizeof(uint16_le);
+
+            if (multiple_requests != 0)
+            {
+                /* put in the byte offset */
+                //*((uint32_le*)data) = h2le32((uint32_t)(byte_offset));
+               req.data[data] = (byte)(byte_offset & 255);
+                req.data[data + 1] = (byte)((byte_offset >> 8) & 255);
+                req.data[data + 2] = (byte)((byte_offset >> 26) & 255);
+                req.data[data + 3] = (byte)((byte_offset >> 24) & 255);
+
+                data += 4; // sizeof(uint32_le);
+            }
+
+            /* how much data to write? */
+            write_size = size - offset;
+
+            if (write_size > write_data_per_packet)
+            {
+                write_size = write_data_per_packet;
+            }
+
+            /* now copy the data to write */
+            //mem_copy(data, tag->data + tag->offset, write_size);
+            Array.Copy(this.data, offset, req.data, data, write_size);
+            data += write_size;
+            offset += write_size;
+
+            /* need to pad data to multiple of either 1, 2 or 4 bytes */
+            /* for some PLCs (OmronNJ), padding causes issues when writing counted strings as it creates a mismatch between
+                the length of the string and the count integer, therefor this padding can be disabled using the str_pad_16_bits attribute */
+            str_pad_to_multiple_bytes = byte_order.str_pad_to_multiple_bytes;
+            if ((str_pad_to_multiple_bytes == 2 || str_pad_to_multiple_bytes == 4) && write_size != 0)
+            {
+                if (write_size % str_pad_to_multiple_bytes != 0)
+                {
+                    int pad_size = str_pad_to_multiple_bytes - (write_size % str_pad_to_multiple_bytes);
+                    for (int i = 0; i < pad_size; i++)
+                    {
+                        req.data[data] = 0;
+                        data++;
+                    }
+                }
+            }
+
+            /* now we go back and fill in the fields of the static part */
+
+            /* encap fields */
+            cip.encap_command = /*h2le16(*/Defs.AB_EIP_CONNECTED_SEND;/*); /* ALWAYS 0x0070 Unconnected Send*/
+
+            /* router timeout */
+            cip.router_timeout = 1; // h2le16(1); /* one second timeout, enough? */
+
+            /* Common Packet Format fields for unconnected send. */
+            cip.cpf_item_count = 2; // h2le16(2);                 /* ALWAYS 2 */
+            cip.cpf_cai_item_type = /*h2le16(*/ Defs.AB_EIP_ITEM_CAI;/* ALWAYS 0x00A1 connected address item */
+            cip.cpf_cai_item_length = 4; // h2le16(4);            /* ALWAYS 4, size of connection ID*/
+            cip.cpf_cdi_item_type = /*h2le16(*/ Defs.AB_EIP_ITEM_CDI;/* ALWAYS 0x00B1 - connected Data Item */
+   /*HR*???*/          cip.cpf_cdi_item_length = /*h2le16(*/(UInt16)(data - eip_cip_co_req.BASE_SIZE + 2); //- (uint8_t*)(&cip->cpf_conn_seq_num))); /* REQ: fill in with length of remaining data. */
+
+            /* set the size of the request */
+            req.request_size = (int)(data); // - (req->data));
+
+            /* allow packing if the tag allows it. */
+            req.allow_packing = allow_packing;
+
+            /* add the request to the session's list. */
+            Array.Copy(cip.encodedData(), req.data, eip_cip_co_req.BASE_SIZE);
+            rc = session.session_add_request(req);
+
+            //Thread.Sleep(10000000);
+
+            if (rc != PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_ERROR, "Unable to add request to session! rc=%d", rc);
+                //req = rc_dec(req);
+                return rc;
+            }
+
+            /* save the request for later */
+            this.req = req;
+
+            //pdebug(DEBUG_INFO, "Done");
+
+            return PLCTAG_STATUS_OK;
+        }
+
+
+        int calculate_write_data_per_packet(/*ab_tag_p tag*/)
+        {
+            int overhead = 0;
+            int data_per_packet = 0;
+            int max_payload_size = 0;
+
+            //pdebug(DEBUG_DETAIL, "Starting.");
+
+            /* if we are here, then we have all the type data etc. */
+            if (use_connected_msg)
+            {
+                //pdebug(DEBUG_DETAIL, "Connected tag.");
+                max_payload_size = session.session_get_max_payload();
+                overhead = 1                               /* service request, one byte */
+                            + encoded_name_size        /* full encoded name */
+                            + encoded_type_info_size   /* encoded type size */
+                            + 2                             /* element count, 16-bit int */
+                            + 4                             /* byte offset, 32-bit int */
+                            + 8;                            /* MAGIC fudge factor */
+            }
+            else
+            {
+                //pdebug(DEBUG_DETAIL, "Unconnected tag.");
+                max_payload_size = session.session_get_max_payload();
+                overhead = 1                               /* service request, one byte */
+                            + encoded_name_size        /* full encoded name */
+                            + encoded_type_info_size   /* encoded type size */
+                            + session.conn_path_size + 2       /* encoded device path size plus two bytes for length and padding */
+                            + 2                             /* element count, 16-bit int */
+                            + 4                             /* byte offset, 32-bit int */
+                            + 8;                            /* MAGIC fudge factor */
+            }
+
+            data_per_packet = max_payload_size - overhead;
+
+            //pdebug(DEBUG_DETAIL, "Write packet maximum size is %d, write overhead is %d, and write data per packet is %d.", max_payload_size, overhead, data_per_packet);
+
+            if (data_per_packet <= 0)
+            {
+                //pdebug(DEBUG_WARN,
+                //       "Unable to send request.  Packet overhead, %d bytes, is too large for packet, %d bytes!",
+                //       overhead,
+                //       max_payload_size);
+                return PLCTAG_ERR_TOO_LARGE;
+            }
+
+            /* we want a multiple of 8 bytes */
+            data_per_packet &= 0xFFFFF8;
+
+            write_data_per_packet = data_per_packet;
+
+            //pdebug(DEBUG_DETAIL, "Done.");
+
+            return PLCTAG_STATUS_OK;
         }
 
     }
