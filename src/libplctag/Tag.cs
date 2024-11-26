@@ -80,7 +80,7 @@ namespace libplctag
 
         ~Tag()
         {
-            Dispose();
+             Dispose();
         }
 
         /// <summary>

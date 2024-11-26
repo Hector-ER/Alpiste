@@ -128,7 +128,7 @@ namespace Alpiste.Protocol.AB
 
         Thread /*thread_p*/ handler_thread;
         public volatile int terminating;
-        Mutex /*mutex_p*/ mutex;
+        mutex_t /*mutex_p*/ mutex;
         
         Cond /*  cond_p*/ wait_cond;
 
@@ -137,7 +137,7 @@ namespace Alpiste.Protocol.AB
         public int auto_disconnect_timeout_ms;
 
 
-        public static Mutex session_mutex = new Mutex();
+        public static mutex_t session_mutex = new mutex_t();
         public static HashSet<Session> sessions = new HashSet<Session>();
         public HashSet<PlcTag> tags_references = new HashSet<PlcTag>();
 
@@ -308,7 +308,7 @@ namespace Alpiste.Protocol.AB
             //pdebug(DEBUG_INFO, "Starting.");
 
             /* create the session mutex. */
-            mutex = new Mutex();
+            mutex = new mutex_t();
             //if ((rc = mutex_create(&(session->mutex))) != PLCTAG_STATUS_OK)
             //{
             //    pdebug(DEBUG_WARN, "Unable to create session mutex!");
@@ -327,6 +327,7 @@ namespace Alpiste.Protocol.AB
 
             handler_thread = new Thread(new System.Threading.ParameterizedThreadStart(session_handler));
             handler_thread.Start(this);
+            handler_thread = null;
             /*if ((rc = thread_create((thread_p*)&(session->handler_thread), session_handler, 32 * 1024, session)) != PLCTAG_STATUS_OK)
             {
                 //pdebug(DEBUG_WARN, "Unable to create session thread!");
@@ -813,9 +814,11 @@ namespace Alpiste.Protocol.AB
                  */
 
                 //pdebug(DEBUG_SPEW, "Critical block.");
+                session.mutex.mutex_lock() ;
                 lock (/*critical_block(*/session.mutex) {
                     session.purge_aborted_requests_unsafe(/*session*/);
                 }
+                session.mutex.mutex_unlock();
 
                 switch (state)
                 {

@@ -153,6 +153,7 @@ namespace Alpiste.Lib
         {
             initialize_modules();
         }
+       
         public PlcTag(attr attribs, tag_extended_callback_func tag_callback_func, Object userdata):this()
         {
             plc_tag_generic_init_tag(attribs, tag_callback_func, userdata);
@@ -1101,7 +1102,7 @@ namespace Alpiste.Lib
 
             //rc = thread_create(&tag_tickler_thread, tag_tickler_func, 32 * 1024, NULL);
 
-            tag_tickler_thread = new Thread(new ThreadStart(ref tag_tickler_func));
+            //tag_tickler_thread =  new Thread(new ThreadStart(ref tag_tickler_func));
             tag_tickler_thread.Start();
             
             /*if (rc != PLCTAG_STATUS_OK)
@@ -2084,7 +2085,11 @@ namespace Alpiste.Lib
                         }
 
                         /* hook the destructor */
-//*HR*                        atexit(plc_tag_shutdown);
+                        //*HR*                        atexit(plc_tag_shutdown);
+                        //var process = System.Diagnostics.Process.GetCurrentProcess(); //.Start(startInfo);
+                        //System.Diagnostics.Process.GetCurrentProcess().Exited += (a, b) => plc_tag_shutdown();
+                        //AppDomain.CurrentDomain.ProcessExit += (a, b) => //process.Kill();
+                        //    plc_tag_shutdown();
 
                         /* do this last */
                         library_initialized = true;
@@ -2153,11 +2158,13 @@ namespace Alpiste.Lib
                 return PLCTAG_ERR_NULL_PTR;
             }
 
+
             /*critical_block(tag_lookup_mutex) {
                 tag = hashtable_remove(tags, tag_id);
             }*/
-         
-            lock (tags)
+
+            tag_lookup_mutex.mutex_lock();
+            //lock (tags)
             {
                 //tag = tags.GetValueOrDefault(tag_id);
                 bool b = tags.TryGetValue(tag_id, out tag);
@@ -2178,7 +2185,8 @@ namespace Alpiste.Lib
                 }*/
                 
             }
-               
+
+            tag_lookup_mutex.mutex_unlock();
 
             /*if (!tag)
             {
@@ -2782,7 +2790,7 @@ namespace Alpiste.Lib
                         rc = PLCTAG_ERR_OUT_OF_BOUNDS;
                     }
                 } while (false);
-                tag.api_mutex.mutex_lock();
+                tag.api_mutex.mutex_unlock();
 
             }
             else
@@ -2982,6 +2990,106 @@ namespace Alpiste.Lib
 
             return rc;
         }
+
+        /*
+ * plc_tag_shutdown
+ *
+ * Some systems may not be able to call atexit() handlers.  In those cases, wrappers should
+ * call this function before unloading the library or terminating.   Most OSes will cleanly
+ * recover all system resources when a process is terminated and this will not be necessary.
+ */
+
+        public static void plc_tag_shutdown()
+        {
+            int tag_table_entries = 0;
+
+            //debug_set_tag_id(0);
+
+            //pdebug(DEBUG_INFO, "Starting.");
+
+            /* terminate anything waiting on the library and prevent any tags from being created. */
+            /*atomic_set(&*/
+            library_terminating = true; //, 1);
+
+            /* close all tags. */
+            //pdebug(DEBUG_DETAIL, "Closing all tags.");
+
+            tag_lookup_mutex.mutex_lock();
+            PlcTag[] tags_array = tags.Values.ToArray();
+            tag_lookup_mutex.mutex_unlock();
+
+            
+            /*critical_block(tag_lookup_mutex) {
+                tag_table_entries = hashtable_capacity(tags);
+            }*/
+
+            for (int i = 0; i < tags_array.Length /*tag_table_entries*/; i++)
+            {
+                //PlcTag tag = null;
+
+                /*critical_block(tag_lookup_mutex) {
+                    tag_table_entries = hashtable_capacity(tags);
+
+                    if (i < tag_table_entries && tag_table_entries >= 0)
+                    {
+                        tag = hashtable_get_index(tags, i);
+
+                        /* make sure the tag does not go away while we are using the pointer. */
+                /*        if (tag)
+                        {
+                            /* this returns NULL if the existing ref-count is zero. */
+                /*           tag = rc_inc(tag);
+                       }
+                   }
+               }
+
+               /* do this outside the mutex. */
+                /*if (tag)
+                {
+                    debug_set_tag_id(tag->tag_id);
+                    pdebug(DEBUG_DETAIL, "Destroying tag %" PRId32 ".", tag->tag_id);*/
+                plc_tag_destroy(tags_array[i].tag_id);
+                    //rc_dec(tag);
+                //}
+            }
+
+            //pdebug(DEBUG_DETAIL, "All tags closed.");
+
+            //pdebug(DEBUG_DETAIL, "Cleaning up library resources.");
+
+            destroy_modules();
+
+            /* Clear the termination flag in case we want to start up again. */
+            /*atomic_set(&*/
+            library_terminating = false; /*, 0);*/
+
+            //pdebug(DEBUG_INFO, "Done.");
+        }
+
+        static void destroy_modules()
+        {
+            //ab_teardown();
+
+            //mb_teardown();
+
+            //omron_teardown();
+
+            lib_teardown();
+
+            /*spin_block(&library_initialization_lock) {
+                if (lib_mutex != NULL)
+                {
+                    /* FIXME casting to get rid of volatile is WRONG */
+            /*        mutex_destroy((mutex_p*)&lib_mutex);
+                    lib_mutex = NULL;
+                }
+            }*/
+
+            //plc_tag_unregister_logger();
+
+            library_initialized = false;
+        }
+
 
     }
 }

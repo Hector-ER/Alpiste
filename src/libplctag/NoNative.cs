@@ -15,7 +15,10 @@ namespace libplctag
         {
             return Alpiste.Lib.PlcTag.plc_tag_create_ex(lpString, func, userdata, timeout);
         } //=> plctag.plc_tag_create_ex(lpString, func, userdata, timeout);
-        public int plc_tag_destroy(Int32 tag) { return 0; } // => plctag.plc_tag_destroy(tag);
+        public int plc_tag_destroy(Int32 tag)
+        { 
+            return Alpiste.Lib.PlcTag.plc_tag_destroy(tag);
+        } // => plctag.plc_tag_destroy(tag);
         public void plc_tag_shutdown() { return; } // => plctag.plc_tag_shutdown();
         public int plc_tag_register_callback(Int32 tag_id, callback_func func) { return 0; } // => plctag.plc_tag_register_callback(tag_id, func);
         public int plc_tag_unregister_callback(Int32 tag_id) { return 0; } // => plctag.plc_tag_unregister_callback(tag_id);
