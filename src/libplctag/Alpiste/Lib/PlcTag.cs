@@ -16,7 +16,6 @@ using static libplctag.NativeImport.plctag;
 namespace Alpiste.Lib
 {
     
-
     public enum ElemType {
         AB_TYPE_BOOL,
         AB_TYPE_BOOL_ARRAY,
@@ -87,23 +86,13 @@ namespace Alpiste.Lib
 
     public class PlcTag: Status, IDisposable
     {
-        // Para Overridear
-        virtual public int abort() { return 0; }
-        virtual public int read() { return 0; }
-        virtual public int status() { return 0; }
-        virtual public int tickler() { return 0; }
-        virtual public int write() { return 0; }
-
-        virtual public int wake_plc() { return 0; }
-
-
+        #region Declaración de variables
         const int TAG_ID_MASK = 0xFFFFFFF;
 
-        //public static HashSet<PlcTag> tags = new HashSet<PlcTag>();
-        public static Dictionary<Int32, PlcTag> tags = new Dictionary<Int32, PlcTag> ();
-        
+        public static Dictionary<Int32, PlcTag> tags = new Dictionary<Int32, PlcTag>();
+
         static Random rand = new Random();
-                
+
         public bool is_bit;
         public bool tag_is_dirty;
         public bool read_in_flight;
@@ -136,11 +125,10 @@ namespace Alpiste.Lib
         public Int32 auto_sync_read_ms;
         public Int32 auto_sync_write_ms;
         public byte[] data;
-        public tag_byte_order_t byte_order = null; // new tag_byte_order_t();
-        public mutex_t ext_mutex=new mutex_t();
-        public mutex_t api_mutex=new mutex_t();
+        public tag_byte_order_t byte_order = null;
+        public mutex_t ext_mutex = new mutex_t();
+        public mutex_t api_mutex = new mutex_t();
         public Cond tag_cond_wait;
-        // public tag_vtable_t vtable;
         public tag_extended_callback_func callback;
         public Object userdata;
         public Int64 read_cache_expire;
@@ -149,120 +137,402 @@ namespace Alpiste.Lib
         public Int64 auto_sync_next_write;
         public object value;
 
+        #endregion
+
+        #region Constructor y Destructor
         public PlcTag()
         {
-            initialize_modules();
+            //initialize_modules();
         }
-       
-        public PlcTag(attr attribs, tag_extended_callback_func tag_callback_func, Object userdata):this()
+
+        public PlcTag(attr attribs, tag_extended_callback_func tag_callback_func, Object userdata) : this()
         {
             plc_tag_generic_init_tag(attribs, tag_callback_func, userdata);
 
             /* set up the read cache config. */
-  /*HR*VER          long read_cache_ms = Attr.attr_get_int(attribs, "read_cache_ms", 0);
-            if (read_cache_ms < 0)
-            {
-                //pdebug(DEBUG_WARN, "read_cache_ms value must be positive, using zero.");
-                read_cache_ms = 0;
-            }
+            /*HR*VER          long read_cache_ms = Attr.attr_get_int(attribs, "read_cache_ms", 0);
+                      if (read_cache_ms < 0)
+                      {
+                          //pdebug(DEBUG_WARN, "read_cache_ms value must be positive, using zero.");
+                          read_cache_ms = 0;
+                      }
 
-//*HR*VER            read_cache_expire = 0;
-//*HR*VER            this.read_cache_ms = read_cache_ms;
+          //*HR*VER            read_cache_expire = 0;
+          //*HR*VER            this.read_cache_ms = read_cache_ms;
 
-            /* set up any automatic read/write */
-/*HR*VER            auto_sync_read_ms = Attr.attr_get_int(attribs, "auto_sync_read_ms", 0);
-            if (auto_sync_read_ms < 0)
-            {
-                //pdebug(DEBUG_WARN, "auto_sync_read_ms value must be positive!");
-                //attr_destroy(attribs);
-                //rc_dec(tag);
-                //return null;  // PLCTAG_ERR_BAD_PARAM;
-                throw new Exception("auto_sync_read_ms value must be positive!");
-            }
-            else if (auto_sync_read_ms > 0)
-            {
-                /* how many periods did we already pass? */
-                // int64_t periods = (time_ms() / tag->auto_sync_read_ms);
-                // tag->auto_sync_next_read = (periods + 1) * tag->auto_sync_read_ms;
-                /* start some time in the future, but with random jitter. */
-/*HR*VER                auto_sync_next_read = System.DateTime.Now.Millisecond +
-                    rand.Next() % auto_sync_read_ms;
-            }
+                      /* set up any automatic read/write */
+            /*HR*VER            auto_sync_read_ms = Attr.attr_get_int(attribs, "auto_sync_read_ms", 0);
+                        if (auto_sync_read_ms < 0)
+                        {
+                            //pdebug(DEBUG_WARN, "auto_sync_read_ms value must be positive!");
+                            //attr_destroy(attribs);
+                            //rc_dec(tag);
+                            //return null;  // PLCTAG_ERR_BAD_PARAM;
+                            throw new Exception("auto_sync_read_ms value must be positive!");
+                        }
+                        else if (auto_sync_read_ms > 0)
+                        {
+                            /* how many periods did we already pass? */
+            // int64_t periods = (time_ms() / tag->auto_sync_read_ms);
+            // tag->auto_sync_next_read = (periods + 1) * tag->auto_sync_read_ms;
+            /* start some time in the future, but with random jitter. */
+            /*HR*VER                auto_sync_next_read = System.DateTime.Now.Millisecond +
+                                rand.Next() % auto_sync_read_ms;
+                        }
 
-            auto_sync_write_ms = Attr.attr_get_int(attribs, "auto_sync_write_ms", 0);
-            if (auto_sync_write_ms < 0)
+                        auto_sync_write_ms = Attr.attr_get_int(attribs, "auto_sync_write_ms", 0);
+                        if (auto_sync_write_ms < 0)
+                        {
+                            //pdebug(DEBUG_WARN, "auto_sync_write_ms value must be positive!");
+                            //attr_destroy(attribs);
+                            //rc_dec(tag);
+                            //return null; // PLCTAG_ERR_BAD_PARAM;
+                            throw new Exception("auto_sync_write_ms value must be positive!");
+                        }
+                        else
+                        {
+                            auto_sync_next_write = 0;
+                        }
+
+                        /* set up the tag byte order if there are any overrides. */
+            /*HR*VER            int rc = set_tag_byte_order(attribs);
+                        if (rc != PLCTAG_STATUS_OK)
+                        {
+                            //pdebug(DEBUG_WARN, "Unable to correctly set tag data byte order: %s!", plc_tag_decode_error(rc));
+                            //attr_destroy(attribs);
+                            //rc_dec(tag);
+                            //return null; // rc;
+                            throw new Exception ("Unable to correctly set tag data byte order: %s!");
+                        }
+            */
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
             {
-                //pdebug(DEBUG_WARN, "auto_sync_write_ms value must be positive!");
-                //attr_destroy(attribs);
-                //rc_dec(tag);
-                //return null; // PLCTAG_ERR_BAD_PARAM;
-                throw new Exception("auto_sync_write_ms value must be positive!");
+                if (disposing)
+                {
+                    // TODO: eliminar el estado administrado (objetos administrados)
+
+                }
+
+                abort();
+                lock (tags)
+                    tags.Remove(this.tag_id);
+
+                if (tags.Count == 0)
+                {
+                    lib_teardown();
+                }
+
+                // TODO: liberar los recursos no administrados (objetos no administrados) y reemplazar el finalizador
+                // TODO: establecer los campos grandes como NULL
+                disposedValue = true;
+            }
+        }
+
+        // // TODO: reemplazar el finalizador solo si "Dispose(bool disposing)" tiene código para liberar los recursos no administrados
+        // ~PlcTag()
+        // {
+        //     // No cambie este código. Coloque el código de limpieza en el método "Dispose(bool disposing)".
+        //     Dispose(disposing: false);
+        // }
+
+        public void Dispose()
+        {
+            // No cambie este código. Coloque el código de limpieza en el método "Dispose(bool disposing)".
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+
+        #endregion region
+
+        #region Para Overridear
+        // Para Overridear
+        virtual public int abort() { return 0; }
+        virtual public int read() { return 0; }
+        virtual public int status() { return 0; }
+        virtual public int tickler() { return 0; }
+        virtual public int write() { return 0; }
+
+        virtual public int wake_plc() { return 0; }
+
+        #endregion
+
+        #region Para limpiar
+        /*   public static tag_type_map_t[] tag_type_map = new tag_type_map_t[] {
+               /* System tags */
+        /*       new tag_type_map_t(null, "system", "library", null, SystemTag.system_tag_create),
+
+               /* Allen-Bradley PLCs */
+        /*       new tag_type_map_t( "ab-eip", null, null, null, AbTag.ab_tag_create),
+        /*       new tag_type_map_t( "ab_eip", null, null, null, AbTag.ab_tag_create),
+           //    new tag_type_map_t( "modbus-tcp", NULL, NULL, NULL, mb_tag_create),
+           //    new tag_type_map_t( "modbus_tcp", NULL, NULL, NULL, mb_tag_create)
+           };
+          */
+
+        /*
+         * plc_tag_generic_tickler
+         *
+         * This implements the protocol-independent tickling functions such as handling
+         * automatic tag operations and callbacks.
+         */
+
+        void plc_tag_generic_tickler_(/*plc_tag_p tag*/)
+        {
+            /*if (tag)
+            {*/
+            //debug_set_tag_id(tag->tag_id);
+
+            //pdebug(DEBUG_DETAIL, "Tickling tag %d.", tag->tag_id);
+
+            /* if this tag has automatic writes, then there are many things we should check */
+            if (auto_sync_write_ms > 0)
+            {
+                /* has the tag been written to? */
+                if (tag_is_dirty)
+                {
+                    /* abort any in flight read if the tag is dirty. */
+                    if (read_in_flight)
+                    {
+                        //if (tag->vtable && tag->vtable->abort)
+                        //{
+                        //    tag->vtable->abort(tag);
+                        //}
+                        abort();
+
+                        //pdebug(DEBUG_DETAIL, "Aborting in-flight automatic read!");
+
+                        read_complete = false;
+                        read_in_flight = false;
+
+                        /* TODO - should we report an ABORT event here? */
+                        //tag->event_operation_aborted = 1;
+                        //*HR*                      tag_raise_event(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_ABORT);
+                    }
+
+                    /* have we already done something about automatic reads? */
+                    if (auto_sync_next_write == 0)
+                    {
+                        /* we need to queue up a new write. */
+                        auto_sync_next_write = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/ + auto_sync_write_ms;
+
+                        //pdebug(DEBUG_DETAIL, "Queueing up automatic write in %dms.", tag->auto_sync_write_ms);
+                    }
+                    else if (!write_in_flight && auto_sync_next_write <= Alpiste.Utils.Milliseconds.ms() /*time_ms()*/)
+                    {
+                        //pdebug(DEBUG_DETAIL, "Triggering automatic write start.");
+
+                        /* clear out any outstanding reads. */
+                        if (read_in_flight)
+                        {
+                            //if (tag->vtable && tag->vtable->abort)
+                            //{
+                            //    tag->vtable->abort(tag);
+                            abort();
+                            //}
+
+                            read_in_flight = false;
+                        }
+
+                        tag_is_dirty = false;
+                        write_in_flight = true;
+                        auto_sync_next_write = 0;
+
+                        //if (tag->vtable && tag->vtable->write)
+                        //{
+                        status_ = /*(int8_t)tag->vtable->*/write(/*tag*/);
+                        //}
+
+                        // tag->event_write_started = 1;
+                        //*HR*                    tag_raise_event(tag, PLCTAG_EVENT_WRITE_STARTED, tag->status);
+                    }
+                }
+                //}
+
+                /* if this tag has automatic reads, we need to check that state too. */
+                if (auto_sync_read_ms > 0)
+                {
+                    Int64 current_time = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
+
+                    // /* spread these out randomly to avoid too much clustering. */
+                    // if(tag->auto_sync_next_read == 0) {
+                    //     tag->auto_sync_next_read = current_time - (rand() % tag->auto_sync_read_ms);
+                    // }
+
+                    /* do we need to read? */
+                    if (auto_sync_next_read < current_time)
+                    {
+                        /* make sure that we do not have an outstanding read or write. */
+                        if (!read_in_flight && !tag_is_dirty && !write_in_flight)
+                        {
+                            Int64 periods = 0;
+
+                            //pdebug(DEBUG_DETAIL, "Triggering automatic read start.");
+
+                            read_in_flight = true;
+
+                            //if (tag->vtable && tag->vtable->read)
+                            //{
+                            status_ = /*(int8_t)tag->vtable->*/read(/*tag*/);
+                            //}
+
+                            // tag->event_read_started = 1;
+                            //*HR*                       tag_raise_event(tag, PLCTAG_EVENT_READ_STARTED, tag->status);
+
+                            /*
+                            * schedule the next read.
+                            *
+                            * Note that there will be some jitter.  In that case we want to skip
+                            * to the next read time that is a whole multiple of the read period.
+                            *
+                            * This keeps the jitter from slowly moving the polling cycle.
+                            *
+                            * Round up to the next period.
+                            */
+                            periods = (current_time - auto_sync_next_read + (auto_sync_read_ms - 1)) / auto_sync_read_ms;
+
+                            /* warn if we need to skip more than one period. */
+                            if (periods > 1)
+                            {
+                                //pdebug(DEBUG_WARN, "Skipping %" PRId64 " periods of %" PRId32 "ms.", periods, tag->auto_sync_read_ms);
+                            }
+
+                            auto_sync_next_read += (periods * auto_sync_read_ms);
+                            //pdebug(DEBUG_DETAIL, "Scheduling next read at time %" PRId64 ".", tag->auto_sync_next_read);
+                        }
+                        else
+                        {
+                            //pdebug(DEBUG_SPEW, "Unable to start read tag->read_in_flight=%d, tag->tag_is_dirty=%d, tag->write_in_flight=%d!", tag->read_in_flight, tag->tag_is_dirty, tag->write_in_flight);
+                        }
+                    }
+                }
             }
             else
             {
-                auto_sync_next_write = 0;
+                //pdebug(DEBUG_WARN, "Called with null tag pointer!");
             }
 
-            /* set up the tag byte order if there are any overrides. */
-/*HR*VER            int rc = set_tag_byte_order(attribs);
-            if (rc != PLCTAG_STATUS_OK)
+            //pdebug(DEBUG_DETAIL, "Done.");
+
+            //debug_set_tag_id(0);
+        }
+        
+        static int initialize_modules_eliminar()
+        {
+            int rc = PLCTAG_STATUS_OK;
+
             {
-                //pdebug(DEBUG_WARN, "Unable to correctly set tag data byte order: %s!", plc_tag_decode_error(rc));
-                //attr_destroy(attribs);
-                //rc_dec(tag);
-                //return null; // rc;
-                throw new Exception ("Unable to correctly set tag data byte order: %s!");
+                /*
+                * guard library initialization with a mutex.
+                *
+                * This prevents busy waiting as would happen with just a spin lock.
+                */
+                lib_mutex.mutex_lock();
+                {
+                    if (!library_initialized)
+                    {
+                        //pdebug(DEBUG_INFO, "Initializing library modules.");
+                        rc = lib_init();
+
+                        //pdebug(DEBUG_INFO, "Initializing AB module.");
+                        if (rc == PLCTAG_STATUS_OK)
+                        {
+                            //*HR*                           rc = ab_init();
+                        }
+
+                        //pdebug(DEBUG_INFO, "Initializing Modbus module.");
+                        if (rc == PLCTAG_STATUS_OK)
+                        {
+                            //*HR*                            rc = mb_init();
+                        }
+
+                        //pdebug(DEBUG_INFO, "Initializing Omron module.");
+                        if (rc == PLCTAG_STATUS_OK)
+                        {
+                            //*HR*                            rc = omron_init();
+                        }
+
+                        /* hook the destructor */
+                        //*HR*                        atexit(plc_tag_shutdown);
+                        //var process = System.Diagnostics.Process.GetCurrentProcess(); //.Start(startInfo);
+                        //System.Diagnostics.Process.GetCurrentProcess().Exited += (a, b) => plc_tag_shutdown();
+                        //AppDomain.CurrentDomain.ProcessExit += (a, b) => //process.Kill();
+                        //    plc_tag_shutdown();
+
+                        /* do this last */
+                        library_initialized = true;
+
+                        //pdebug(DEBUG_INFO, "Done initializing library modules.");
+                    }
+                }
+                lib_mutex.mutex_unlock();
             }
-*/
+
+            //pdebug(DEBUG_INFO, "Done.");
+
+            return rc;
         }
 
-        public static tag_type_map_t[] tag_type_map = new tag_type_map_t[] {
-            /* System tags */
-            new tag_type_map_t(null, "system", "library", null, SystemTag.system_tag_create),
+        //*HR*  Para ser usado con Modbus
 
-            /* Allen-Bradley PLCs */
-            new tag_type_map_t( "ab-eip", null, null, null, AbTag.ab_tag_create),
-            new tag_type_map_t( "ab_eip", null, null, null, AbTag.ab_tag_create),
-        //    new tag_type_map_t( "modbus-tcp", NULL, NULL, NULL, mb_tag_create),
-        //    new tag_type_map_t( "modbus_tcp", NULL, NULL, NULL, mb_tag_create)
-        };
-        
+        //        int plc_tag_generic_wake_tag_impl(const char* func, int line_num, plc_tag_p tag)
+        //{
+        //    int rc = PLCTAG_STATUS_OK;
+        //
+        //    pdebug(DEBUG_DETAIL, "Starting. Called from %s:%d.", func, line_num);
+        //
+        //    if(!tag) {
+        //        pdebug(DEBUG_WARN, "Called from %s:%d when tag is NULL!", func, line_num);
+        //        return PLCTAG_ERR_NULL_PTR;
+        //    }
+        //
+        //    if(!tag->tag_cond_wait) {
+        //        pdebug(DEBUG_WARN, "Called from %s:%d when tag condition var is NULL!", func, line_num);
+        //        return PLCTAG_ERR_NULL_PTR;
+        //    }
+        //
+        //    rc = cond_signal(tag->tag_cond_wait);
+        //    if(rc != PLCTAG_STATUS_OK) {
+        //        pdebug(DEBUG_WARN, "Error %s trying to signal condition variable in call from %s:%d", plc_tag_decode_error(rc), func, line_num);
+        //        return rc;
+        //    }
+        //
+        //    pdebug(DEBUG_DETAIL, "Done. Called from %s:%d.", func, line_num);
+        //
+        //    return rc;
+        //}
+
+
+        #endregion
+
+        #region Métodos internos
+
         public static PlcTag plc_tag_create_(string attrib_str, int timeout)
         {
             return plc_tag_create_ex_(attrib_str, null, null, timeout);
         }
 
-        public static Int32 plc_tag_create(string attrib_str, int timeout)
-        {
-            return plc_tag_create_ex(attrib_str, null, null, timeout);
-        }
-
-
-        public delegate void TagCallbackFunc/*(int hwnd, int lParam);*/ (int tag_id, int Event, int status, object userdata);
-        public delegate void tag_extended_callback_func /*(int32_t tag_id, int event, int status, void* user_data)*/
-            (int tag_id, int Event, int status, Object user_data);
-
-        public static Int32 plc_tag_create_ex(string attrib_str, callback_func_ex/*TagCallbackFunc tag_extended_callback_func*/ tag_callback_func, object userdata, int timeout)
-        {
-            return plc_tag_create_(attrib_str, timeout).tag_id;
-        }
-        public static PlcTag plc_tag_create_ex_(string attrib_str, /*TagCallbackFunc*/ tag_extended_callback_func tag_callback_func, object userdata, int timeout)
+        public static PlcTag plc_tag_create_ex_(string attrib_str, tag_extended_callback_func tag_callback_func, object userdata, int timeout)
         {
             PlcTag tag = null;
 
-            int id = PLCTAG_ERR_OUT_OF_BOUNDS;
-            attr attribs = null;
+            //int id = PLCTAG_ERR_OUT_OF_BOUNDS;
+            attr attribs; // = null;
             int rc = PLCTAG_STATUS_OK;
             int read_cache_ms = 0;
-            tag_constructor tag_constructor = null;
+            tag_constructor tag_constructor; // = null;
             int debug_level = -1;
 
             /* check the arguments */
 
             if (timeout < 0)
             {
+                throw new TimeoutBelow0Exception();
                 //pdebug(DEBUG_WARN, "Timeout must not be negative!");
-                return null; // PLCTAG_ERR_BAD_PARAM;
+                //return null; // PLCTAG_ERR_BAD_PARAM;
             }
 
             if ((attrib_str == null) || attrib_str.Length == 0)
@@ -278,7 +548,7 @@ namespace Alpiste.Lib
                 return null; // PLCTAG_ERR_BAD_DATA;
             }
 
-            
+
             /*
              * create the tag, this is protocol specific.
              *
@@ -308,12 +578,13 @@ namespace Alpiste.Lib
                 return null; // tag_status;
             }*/
 
-            
+
             /* map the tag to a tag ID */
             //id = add_tag_lookup(tag);
-            lock(tags)
+            lock (tags)
                 tags.Add(tag.GetHashCode(), tag);
             tag.tag_id = tag.GetHashCode();
+            initialize_modules();
 
             tag.wake_plc();
 
@@ -336,7 +607,7 @@ namespace Alpiste.Lib
                 /*critical_block(tag_lookup_mutex) {
                     hashtable_remove(tags, (int64_t)tag->tag_id);
                 }*/
-                lock(tags)
+                lock (tags)
                     tags.Remove(tag.tag_id);
 
                 //rc_dec(tag);
@@ -433,8 +704,8 @@ namespace Alpiste.Lib
 
                 //pdebug(DEBUG_INFO, "tag set up elapsed time %" PRId64 "ms", time_ms() - start_time);
             }
-            
-            if (rc!= PLCTAG_STATUS_OK)
+
+            if (rc != PLCTAG_STATUS_OK)
             {
                 tag.abort();
                 lock (tags)
@@ -448,6 +719,376 @@ namespace Alpiste.Lib
 
             return tag; //id;
         }
+
+
+        void plc_tag_generic_tickler()
+        {
+            if (auto_sync_write_ms > 0)
+            {
+                /* has the tag been written to? */
+                if (tag_is_dirty)
+                {
+                    /* abort any in flight read if the tag is dirty. */
+                    if (read_in_flight)
+                    {
+                        abort();
+
+                        //pdebug(DEBUG_DETAIL, "Aborting in-flight automatic read!");
+
+                        read_complete = false;
+                        read_in_flight = false;
+
+                        /* TODO - should we report an ABORT event here? */
+                        //tag->event_operation_aborted = 1;
+                        //*HR*                      tag_raise_event(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_ABORT);
+                    }
+
+                    /* have we already done something about automatic reads? */
+                    if (auto_sync_next_write == 0)
+                    {
+                        /* we need to queue up a new write. */
+                        auto_sync_next_write = Alpiste.Utils.Milliseconds.ms() + auto_sync_write_ms;
+
+                        //pdebug(DEBUG_DETAIL, "Queueing up automatic write in %dms.", tag->auto_sync_write_ms);
+                    }
+                    else if (!write_in_flight && auto_sync_next_write <= Alpiste.Utils.Milliseconds.ms())
+                    {
+                        //pdebug(DEBUG_DETAIL, "Triggering automatic write start.");
+
+                        /* clear out any outstanding reads. */
+                        if (read_in_flight)
+                        {
+                            abort();
+
+                            read_in_flight = false;
+                        }
+
+                        tag_is_dirty = false;
+                        write_in_flight = true;
+                        auto_sync_next_write = 0;
+
+                        status_ = write();
+
+                        // tag->event_write_started = 1;
+                        //*HR*                    tag_raise_event(tag, PLCTAG_EVENT_WRITE_STARTED, tag->status);
+                    }
+                }
+
+                /* if this tag has automatic reads, we need to check that state too. */
+                if (auto_sync_read_ms > 0)
+                {
+                    Int64 current_time = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
+
+                    // /* spread these out randomly to avoid too much clustering. */
+                    // if(tag->auto_sync_next_read == 0) {
+                    //     tag->auto_sync_next_read = current_time - (rand() % tag->auto_sync_read_ms);
+                    // }
+
+                    /* do we need to read? */
+                    if (auto_sync_next_read < current_time)
+                    {
+                        /* make sure that we do not have an outstanding read or write. */
+                        if (!read_in_flight && !tag_is_dirty && !write_in_flight)
+                        {
+                            Int64 periods = 0;
+
+                            //pdebug(DEBUG_DETAIL, "Triggering automatic read start.");
+
+                            read_in_flight = true;
+
+                            status_ = read();
+
+                            // tag->event_read_started = 1;
+                            //*HR*                       tag_raise_event(tag, PLCTAG_EVENT_READ_STARTED, tag->status);
+
+                            /*
+                            * schedule the next read.
+                            *
+                            * Note that there will be some jitter.  In that case we want to skip
+                            * to the next read time that is a whole multiple of the read period.
+                            *
+                            * This keeps the jitter from slowly moving the polling cycle.
+                            *
+                            * Round up to the next period.
+                            */
+                            periods = (current_time - auto_sync_next_read + (auto_sync_read_ms - 1)) / auto_sync_read_ms;
+
+                            /* warn if we need to skip more than one period. */
+                            if (periods > 1)
+                            {
+                                //pdebug(DEBUG_WARN, "Skipping %" PRId64 " periods of %" PRId32 "ms.", periods, tag->auto_sync_read_ms);
+                            }
+
+                            auto_sync_next_read += (periods * auto_sync_read_ms);
+                            //pdebug(DEBUG_DETAIL, "Scheduling next read at time %" PRId64 ".", tag->auto_sync_next_read);
+                        }
+                        else
+                        {
+                            //pdebug(DEBUG_SPEW, "Unable to start read tag->read_in_flight=%d, tag->tag_is_dirty=%d, tag->write_in_flight=%d!", tag->read_in_flight, tag->tag_is_dirty, tag->write_in_flight);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                //pdebug(DEBUG_WARN, "Called with null tag pointer!");
+            }
+
+            //pdebug(DEBUG_DETAIL, "Done.");
+
+            //debug_set_tag_id(0);
+        }
+
+        #endregion
+
+        #region Interfaz libplctag
+
+        public static Int32 plc_tag_create(string attrib_str, int timeout)
+        {
+            return plc_tag_create_ex(attrib_str, null, null, timeout);
+        }
+
+        public static Int32 plc_tag_create_ex(string attrib_str, callback_func_ex tag_callback_func, object userdata, int timeout)
+        {
+            return plc_tag_create_(attrib_str, timeout).tag_id;
+        }
+
+        /*
+         * plc_tag_read()
+         *
+         * This function calls through the vtable in the passed tag to call
+         * the protocol-specific implementation.  That starts the read operation.
+         * If there is a timeout passed, then this routine waits for either
+         * a timeout or an error.
+         *
+         * The status of the operation is returned.
+         */
+
+        public static int plc_tag_read(Int32 id, int timeout)
+        {
+            int rc = PLCTAG_STATUS_OK;
+            PlcTag tag = lookup_tag(id);
+            int is_done = 0;
+
+            //pdebug(DEBUG_INFO, "Starting.");
+
+            if (tag == null)
+            {
+                //pdebug(DEBUG_WARN, "Tag not found.");
+                return PLCTAG_ERR_NOT_FOUND;
+            }
+
+            if (timeout < 0)
+            {
+                //pdebug(DEBUG_WARN, "Timeout must not be negative!");
+                //rc_dec(tag);
+                return PLCTAG_ERR_BAD_PARAM;
+            }
+
+            tag.api_mutex.mutex_lock();
+            do
+            {
+                //critical_block(tag->api_mutex) {
+                //tag_raise_event(tag, PLCTAG_EVENT_READ_STARTED, PLCTAG_STATUS_OK);
+                tag.plc_tag_generic_handle_event_callbacks();
+
+                /* check read cache, if not expired, return existing data. */
+                if (tag.read_cache_expire > Alpiste.Utils.Milliseconds.ms())
+                {
+                    //pdebug(DEBUG_INFO, "Returning cached data.");
+                    rc = PLCTAG_STATUS_OK;
+                    is_done = 1;
+                    break;
+                }
+
+                if (tag.read_in_flight || tag.write_in_flight)
+                {
+                    //pdebug(DEBUG_WARN, "An operation is already in flight!");
+                    rc = PLCTAG_ERR_BUSY;
+                    is_done = 1;
+                    break;
+                }
+
+                if (tag.tag_is_dirty)
+                {
+                    //pdebug(DEBUG_WARN, "Tag has locally updated data that will be overwritten!");
+                    rc = PLCTAG_ERR_BUSY;
+                    is_done = 1;
+                    break;
+                }
+
+                tag.read_in_flight = true;
+                tag.status_ = PLCTAG_STATUS_PENDING;
+
+                /* clear the condition var */
+                //cond_clear(tag->tag_cond_wait);
+                tag.tag_cond_wait.cond_clear();
+                tag.tag_cond_wait.debug = true;
+                /* the protocol implementation does not do the timeout. */
+                //if (tag.vtable && tag.vtable->read)
+                //{
+                //rc = tag->vtable->read(tag);
+                rc = tag.read();
+                //}
+                /*else
+                {
+                    pdebug(DEBUG_WARN, "Attempt to call read on a tag that does not support reads.");
+                    rc = PLCTAG_ERR_NOT_IMPLEMENTED;
+                }*/
+
+                /* if not pending then check for success or error. */
+                if (rc != PLCTAG_STATUS_PENDING)
+                {
+                    if (rc != PLCTAG_STATUS_OK)
+                    {
+                        /* not pending and not OK, so error. Abort and clean up. */
+
+                        //pdebug(DEBUG_WARN, "Response from read command returned error %s!", plc_tag_decode_error(rc));
+
+                        //if (tag->vtable && tag->vtable->abort)
+                        //{
+                        //    tag->vtable->abort(tag);
+                        tag.abort();
+                        //}
+                    }
+
+                    tag.read_in_flight = false;
+                    is_done = 1;
+                    break;
+                }
+            } while (false);
+            tag.api_mutex.mutex_unlock();
+
+            /*
+             * if there is a timeout, then wait until we get
+             * an error or we timeout.
+             */
+
+            if ((is_done == 0) && timeout > 0)
+            {
+                Int64 start_time = Alpiste.Utils.Milliseconds.ms();
+                Int64 end_time = start_time + timeout;
+
+                /* wake up the tickler in case it is needed to read the tag. */
+                plc_tag_tickler_wake();
+
+                /* we loop as long as we have time left to wait. */
+                do
+                {
+                    Int64 timeout_left = end_time - Alpiste.Utils.Milliseconds.ms();
+
+                    /* clamp the timeout left to non-negative int range. */
+                    if (timeout_left < 0)
+                    {
+                        timeout_left = 0;
+                    }
+
+                    if (timeout_left > Int32.MaxValue)
+                    {
+                        timeout_left = 100; /* MAGIC, only wait 100ms in this weird case. */
+                    }
+
+                    /* wait for something to happen */
+                    //rc = cond_wait(tag->tag_cond_wait, (int)timeout_left);
+                    rc = tag.tag_cond_wait.cond_wait((int)timeout_left);
+
+                    if (rc != PLCTAG_STATUS_OK)
+                    {
+                        //pdebug(DEBUG_WARN, "Error %s while waiting for tag read to complete!", plc_tag_decode_error(rc));
+                        plc_tag_abort(id);
+
+                        break;
+                    }
+
+                    /* get the tag status. */
+                    rc = plc_tag_status(id);
+
+                    /* check to see if there was an error during tag read. */
+                    if (rc != PLCTAG_STATUS_OK && rc != PLCTAG_STATUS_PENDING)
+                    {
+                        //pdebug(DEBUG_WARN, "Error %s while trying to read tag!", plc_tag_decode_error(rc));
+                        plc_tag_abort(id);
+                    }
+                } while (rc == PLCTAG_STATUS_PENDING && Alpiste.Utils.Milliseconds.ms() < end_time);
+
+                /* the read is not in flight anymore. */
+                tag.api_mutex.mutex_lock();
+                do
+                {
+
+                    //critical_block(tag->api_mutex) {
+                    tag.read_in_flight = false;
+                    tag.read_complete = false;
+                    is_done = 1;
+                    //tag_raise_event(tag, PLCTAG_EVENT_READ_COMPLETED, (int8_t)rc);
+                } while (false);
+                tag.api_mutex.mutex_unlock();
+
+                //pdebug(DEBUG_INFO, "elapsed time %" PRId64 "ms", (time_ms() - start_time));
+            }
+
+            if (rc == PLCTAG_STATUS_OK)
+            {
+                /* set up the cache time.  This works when read_cache_ms is zero as it is already expired. */
+                tag.read_cache_expire = Alpiste.Utils.Milliseconds.ms() + tag.read_cache_ms;
+            }
+
+            /* fire any events that are pending. */
+            tag.plc_tag_generic_handle_event_callbacks();
+
+            //rc_dec(tag);
+
+            //pdebug(DEBUG_INFO, "Done");
+
+            return rc;
+        }
+
+        #endregion
+
+        #region Métodos estáticos
+        /*
+         * initialize_modules() is called the first time any kind of tag is
+         * created.  It will be called before the tag creation routines are
+         * run.
+         */
+
+        static void initialize_modules()
+        {
+            /*
+            * guard library initialization with a mutex.
+            *
+            * This prevents busy waiting as would happen with just a spin lock.
+            */
+            /*    lib_mutex.mutex_lock();
+
+                {
+
+                    if (!library_initialized)
+                    {
+         /*               lib_init();
+
+                        /* do this last */
+            /*               library_initialized = true;
+
+                           //pdebug(DEBUG_INFO, "Done initializing library modules.");
+                       }
+                   }
+                   lib_mutex.mutex_unlock();
+            */
+            lib_mutex.mutex_lock();
+            int cant_tags;
+            lock (tags)
+                cant_tags = tags.Count;
+            if (cant_tags != 0 && !library_initialized)
+            {
+                lib_init();
+                library_initialized = true;
+            }
+            lib_mutex.mutex_unlock();
+
+        }
+
+
 
         /*
          * find_tag_create_func()
@@ -469,68 +1110,78 @@ namespace Alpiste.Lib
             String family = Attr.attr_get_str(attributes, "family", null);
             String model = Attr.attr_get_str(attributes, "model", null);
             //int num_entries = (sizeof(tag_type_map) / sizeof(tag_type_map[0]));
-            int num_entries = tag_type_map.Length;
+            //       int num_entries = tag_type_map.Length;
 
             /* if protocol is set, then use it to match. */
-            if (protocol != null && protocol.Length > 0)
+            /*       if (protocol != null && protocol.Length > 0)
+                   {
+                       for (i = 0; i < num_entries; i++)
+                       {
+                           if ((tag_type_map[i].protocol != null)
+                               && tag_type_map[i].protocol == protocol)
+                           {
+                               //pdebug(DEBUG_INFO, "Matched protocol=%s", protocol);
+                               return tag_type_map[i].tag_Constructor;
+                           }
+                       }
+                   }
+                   else
+                   {
+                       /* match make/family/model */
+            /*           for (i = 0; i < num_entries; i++)
+                       {
+                           if ((tag_type_map[i].make != null)
+                               && make != null && tag_type_map[i].make == make)
+                           {
+                               //pdebug(DEBUG_INFO, "Matched make=%s", make);
+                               if ((tag_type_map[i].family != null))
+                               {
+                                   if (family != null && tag_type_map[i].family == family)
+                                   {
+                                       //pdebug(DEBUG_INFO, "Matched make=%s family=%s", make, family);
+                                       if (tag_type_map[i].model != null)
+                                       {
+                                           if (model != null && tag_type_map[i].model == model)
+                                           {
+                                               //pdebug(DEBUG_INFO, "Matched make=%s family=%s model=%s", make, family, model);
+                                               return tag_type_map[i].tag_Constructor;
+                                           }
+                                       }
+                                       else
+                                       {
+                                           /* matches until a NULL */
+            //pdebug(DEBUG_INFO, "Matched make=%s family=%s model=NULL", make, family);
+            /*                             return tag_type_map[i].tag_Constructor;
+                                     }
+                                 }
+                             }
+                             else
+                             {
+                                 /* matched until a NULL, so we matched */
+            /*                     //pdebug(DEBUG_INFO, "Matched make=%s family=NULL model=NULL", make);
+                                 return tag_type_map[i].tag_Constructor;
+                             }
+                         }
+                     }
+                 } */
+            if (protocol == null && make == "system")
             {
-                for (i = 0; i < num_entries; i++)
-                {
-                    if ((tag_type_map[i].protocol != null)
-                        && tag_type_map[i].protocol == protocol)
-                    {
-                        //pdebug(DEBUG_INFO, "Matched protocol=%s", protocol);
-                        return tag_type_map[i].tag_Constructor;
-                    }
-                }
+                throw new ProtocolNotImplementedException();
             }
-            else
+
+            if (protocol == null || protocol == "ab-eip" || protocol == "ab_eip")
             {
-                /* match make/family/model */
-                for (i = 0; i < num_entries; i++)
-                {
-                    if ((tag_type_map[i].make != null)
-                        && make != null && tag_type_map[i].make == make)
-                    {
-                        //pdebug(DEBUG_INFO, "Matched make=%s", make);
-                        if ((tag_type_map[i].family != null))
-                        {
-                            if (family != null && tag_type_map[i].family == family)
-                            {
-                                //pdebug(DEBUG_INFO, "Matched make=%s family=%s", make, family);
-                                if (tag_type_map[i].model != null)
-                                {
-                                    if (model != null && tag_type_map[i].model == model)
-                                    {
-                                        //pdebug(DEBUG_INFO, "Matched make=%s family=%s model=%s", make, family, model);
-                                        return tag_type_map[i].tag_Constructor;
-                                    }
-                                }
-                                else
-                                {
-                                    /* matches until a NULL */
-                                    //pdebug(DEBUG_INFO, "Matched make=%s family=%s model=NULL", make, family);
-                                    return tag_type_map[i].tag_Constructor;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            /* matched until a NULL, so we matched */
-                            //pdebug(DEBUG_INFO, "Matched make=%s family=NULL model=NULL", make);
-                            return tag_type_map[i].tag_Constructor;
-                        }
-                    }
-                }
+                return AbTag.ab_tag_create;
             }
 
             /* no match */
-            return null;
+            throw new ProtocolNotImplementedException();
+            //return null;
         }
 
         /*****************************************************************************************************
- *****************************  Support routines for extra indirection *******************************
- ****************************************************************************************************/
+         *****************************  Support routines for extra indirection *******************************
+         ****************************************************************************************************/
 
         int set_tag_byte_order(/*plc_tag_p tag,*/ attr attribs)
 
@@ -618,14 +1269,8 @@ namespace Alpiste.Lib
                 String byte_order_str = null;
                 int str_param = 0;
                 int rc = PLCTAG_STATUS_OK;
-                //tag_byte_order_t* new_byte_order = mem_alloc((int)(unsigned int)sizeof(*(tag->byte_order)));
-                tag_byte_order_t new_byte_order = new tag_byte_order_t();
 
-                /*if (!new_byte_order)
-                {
-                    //pdebug(DEBUG_WARN, "Unable to allocate byte order struct for tag!");
-                    return PLCTAG_ERR_NO_MEM;
-                }
+                tag_byte_order_t new_byte_order = new tag_byte_order_t();
 
                 /* copy the defaults. */
                 //*new_byte_order = *(tag->byte_order);
@@ -946,16 +1591,19 @@ namespace Alpiste.Lib
             //pdebug(DEBUG_DETAIL, "Starting.");
 
             /* check the size. */
-            if (byte_order_len != length) {
+            if (byte_order_len != length)
+            {
                 //pdebug(DEBUG_WARN, "Byte order string, \"%s\", must be %d characters long!", byte_order, length);
                 return (byte_order_len < length ? PLCTAG_ERR_TOO_SMALL : PLCTAG_ERR_TOO_LARGE);
             }
 
             /* check each character. */
-            for (int i = 0; i < byte_order_len; i++) {
+            for (int i = 0; i < byte_order_len; i++)
+            {
                 int val = 0;
 
-                if (!isdigit(byte_order[i]) || byte_order[i] < '0' || byte_order[i] > '7') {
+                if (/*!isdigit(byte_order[i].) ||*/ byte_order[i] < '0' || byte_order[i] > '7')
+                {
                     //pdebug(DEBUG_WARN, "Byte order string, \"%s\", must be only characters from '0' to '7'!", byte_order);
                     return PLCTAG_ERR_BAD_DATA;
                 }
@@ -982,8 +1630,7 @@ namespace Alpiste.Lib
 
             return PLCTAG_STATUS_OK;
         }
-
-        public static bool isdigit(char c)
+        /*public static bool isdigit(char c)
         {
             if (c < '0' || c > '9')
             {
@@ -992,7 +1639,7 @@ namespace Alpiste.Lib
             else
             { return true; }
         }
-
+        */
         public int plc_tag_generic_init_tag(attr attribs, tag_extended_callback_func tag_callback_func, object userData)
         {
             int rc = PLCTAG_STATUS_OK;
@@ -1016,17 +1663,14 @@ namespace Alpiste.Lib
             return rc;
         }
 
-        
-
-
-        public static Cond tag_tickler_wait = new Cond(); //null;
-        public static int plc_tag_tickler_wake(/*const char* func, int line_num*/)
+        public static int plc_tag_tickler_wake()
         {
             int rc = PLCTAG_STATUS_OK;
 
             //pdebug(DEBUG_DETAIL, "Starting. Called from %s:%d.", func, line_num);
 
-            if (tag_tickler_wait == null) {
+            if (tag_tickler_wait == null)
+            {
                 //pdebug(DEBUG_WARN, "Called from %s:%d when tag tickler condition var is NULL!", func, line_num);
                 return PLCTAG_ERR_NULL_PTR;
             }
@@ -1035,7 +1679,8 @@ namespace Alpiste.Lib
             tag_tickler_wait.cond_signal();
 
 
-            if (rc != PLCTAG_STATUS_OK) {
+            if (rc != PLCTAG_STATUS_OK)
+            {
                 //pdebug(DEBUG_WARN, "Error %s trying to signal condition variable in call from %s:%d", plc_tag_decode_error(rc), func, line_num);
                 return rc;
             }
@@ -1045,25 +1690,12 @@ namespace Alpiste.Lib
             return rc;
         }
 
-
+        public static Thread tag_tickler_thread = new Thread(new ThreadStart(ref tag_tickler_func));
 
         /*
          * Initialize the library.  This is called in a threadsafe manner and
          * only called once.
          */
-
-        static bool library_terminating = false;
-
-        static Thread tag_tickler_thread = new Thread(new ThreadStart(ref tag_tickler_func));
-
-        const int TAG_TICKLER_TIMEOUT_MS = 100;
-        const int TAG_TICKLER_TIMEOUT_MIN_MS = 10;
-        static Int64 tag_tickler_wait_timeout_end = 0;
-        static mutex_t tag_lookup_mutex = null;
-
-
-
-
         static public int lib_init()
         {
             int rc = PLCTAG_STATUS_OK;
@@ -1104,7 +1736,7 @@ namespace Alpiste.Lib
 
             //tag_tickler_thread =  new Thread(new ThreadStart(ref tag_tickler_func));
             tag_tickler_thread.Start();
-            
+
             /*if (rc != PLCTAG_STATUS_OK)
             {
                 pdebug(DEBUG_ERROR, "Unable to create tag tickler thread!");
@@ -1121,7 +1753,7 @@ namespace Alpiste.Lib
 
             library_terminating = true;
 
-            
+
             //tag_tickler_wait.cond_signal();
 
             /*if (tag_tickler_wait)
@@ -1129,7 +1761,7 @@ namespace Alpiste.Lib
                 //pdebug(DEBUG_INFO, "Signaling tag tickler condition var.");
                 cond_signal(tag_tickler_wait);
             }*/
-            
+
             while (tag_tickler_thread.ThreadState != System.Threading.ThreadState.Stopped)
             {
                 Thread.Sleep(100);
@@ -1186,24 +1818,27 @@ namespace Alpiste.Lib
             //debug_set_tag_id(0);
 
             //pdebug(DEBUG_INFO, "Starting.");
+            int cant_tags;
+            lock (tags)
+                cant_tags = tags.Count;
 
-            while (!library_terminating)
+            while (/*!library_terminating*/ cant_tags > 0)
             {
                 int max_index = 0;
                 Int64 timeout_wait_ms = TAG_TICKLER_TIMEOUT_MS;
 
                 /* what is the maximum time we will wait until */
                 tag_tickler_wait_timeout_end = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/ + timeout_wait_ms;
-  //*ELIM*              tag_lookup_mutex.mutex_lock();
-  //*ELIM*              //Monitor.Enter(tag_lookup_mutex);
-  //*ELIM*              {
-                    //critical_block(tag_lookup_mutex) {
-  //*ELIM*                  lock(tags)
-  //*ELIM*                      max_index = tags.Count; //hashtable_capacity(tags);
-                                            //}
-   //*ELIM*             }
+                //*ELIM*              tag_lookup_mutex.mutex_lock();
+                //*ELIM*              //Monitor.Enter(tag_lookup_mutex);
+                //*ELIM*              {
+                //critical_block(tag_lookup_mutex) {
+                //*ELIM*                  lock(tags)
+                //*ELIM*                      max_index = tags.Count; //hashtable_capacity(tags);
+                //}
+                //*ELIM*             }
                 //Monitor.Exit(tag_lookup_mutex);
-   //*ELIM*             tag_lookup_mutex.mutex_unlock();
+                //*ELIM*             tag_lookup_mutex.mutex_unlock();
 
                 PlcTag[] tags_array = new PlcTag[tags.Count];
                 lock (tags)
@@ -1211,132 +1846,132 @@ namespace Alpiste.Lib
                     //tags_array = tags.Values.ToArray();
                     for (int i = 0; i < tags.Count; i++)
                     {
-                        tags_array[i]=tags.ElementAt(i).Value;
+                        tags_array[i] = tags.ElementAt(i).Value;
                     }
                 }
 
-   //*ELIM*             for (int i = 0; i < max_index; i++)
-                foreach(PlcTag tag_ in tags_array)
+                //*ELIM*             for (int i = 0; i < max_index; i++)
+                foreach (PlcTag tag_ in tags_array)
                 {
-   //*ELIM*                 PlcTag tag = null;
+                    //*ELIM*                 PlcTag tag = null;
 
                     //critical_block(tag_lookup_mutex) {
                     //Monitor.Enter(tag_lookup_mutex); {
-    //*ELIM*                tag_lookup_mutex.mutex_lock(); { 
-                        /* look up the max index again. it may have changed. */
-    //*ELIM*                    lock(tags)
-    //*ELIM*                        max_index = tags.Count; // hashtable_capacity(tags);
+                    //*ELIM*                tag_lookup_mutex.mutex_lock(); { 
+                    /* look up the max index again. it may have changed. */
+                    //*ELIM*                    lock(tags)
+                    //*ELIM*                        max_index = tags.Count; // hashtable_capacity(tags);
 
-    //*ELIM*                    if (i < max_index)
-    //*ELIM*                    {
-                            //tag = hashtable_get_index(tags, i);
-     //*ELIM*                       lock (tags)
-     //*ELIM*                           tag = tags.ElementAt(i);
+                    //*ELIM*                    if (i < max_index)
+                    //*ELIM*                    {
+                    //tag = hashtable_get_index(tags, i);
+                    //*ELIM*                       lock (tags)
+                    //*ELIM*                           tag = tags.ElementAt(i);
 
-                            /*if (tag)
-                            {
-                                debug_set_tag_id(tag->tag_id);
-                                tag = rc_inc(tag);
-                            }*/
-     //*ELIM*                   }
-     //*ELIM*                   else
-     //*ELIM*                   {
-                            //debug_set_tag_id(0);
-     //*ELIM*                       tag = null;
-     //*ELIM*                   }
-     //*ELIM*               }
-     //*ELIM*               tag_lookup_mutex.mutex_unlock();
+                    /*if (tag)
+                    {
+                        debug_set_tag_id(tag->tag_id);
+                        tag = rc_inc(tag);
+                    }*/
+                    //*ELIM*                   }
+                    //*ELIM*                   else
+                    //*ELIM*                   {
+                    //debug_set_tag_id(0);
+                    //*ELIM*                       tag = null;
+                    //*ELIM*                   }
+                    //*ELIM*               }
+                    //*ELIM*               tag_lookup_mutex.mutex_unlock();
                     //Monitor.Exit(tag_lookup_mutex);
 
 
-     //*ELIM*               if (tag != null)
-     //*ELIM*               {
-                        //debug_set_tag_id(tag->tag_id);
+                    //*ELIM*               if (tag != null)
+                    //*ELIM*               {
+                    //debug_set_tag_id(tag->tag_id);
 
-                        if (!tag_.skip_tickler)
+                    if (!tag_.skip_tickler)
+                    {
+                        //pdebug(DEBUG_DETAIL, "Tickling tag %d.", tag->tag_id);
+
+                        /* try to hold the tag API mutex while all this goes on. */
+                        //if (mutex_try_lock(tag->api_mutex) == PLCTAG_STATUS_OK)
+                        if (tag_.api_mutex.mutex_try_lock() == PLCTAG_STATUS_OK)
                         {
-                            //pdebug(DEBUG_DETAIL, "Tickling tag %d.", tag->tag_id);
+                            tag_.plc_tag_generic_tickler(/*tag*/);
 
-                            /* try to hold the tag API mutex while all this goes on. */
-                            //if (mutex_try_lock(tag->api_mutex) == PLCTAG_STATUS_OK)
-                            if (tag_.api_mutex.mutex_try_lock() == PLCTAG_STATUS_OK)
+                            /* call the tickler function if we can. */
+                            //if (tag->vtable && tag->vtable->tickler)
+                            //{
+                            //    /* call the tickler on the tag. */
+                            //    tag->vtable->tickler(tag);
+                            tag_.tickler();
+
+                            if (tag_.read_complete)
                             {
-                                tag_.plc_tag_generic_tickler(/*tag*/);
+                                tag_.read_complete = false;
+                                tag_.read_in_flight = false;
 
-                                /* call the tickler function if we can. */
-                                //if (tag->vtable && tag->vtable->tickler)
-                                //{
-                                //    /* call the tickler on the tag. */
-                                //    tag->vtable->tickler(tag);
-                                tag_.tickler();
+                                //tag->event_read_complete = 1;
+                                //*HR*                                  tag_raise_event(tag, PLCTAG_EVENT_READ_COMPLETED, tag->status);
 
-                                    if (tag_.read_complete)
-                                    {
-                                        tag_.read_complete = false;
-                                        tag_.read_in_flight = false;
-
-                                        //tag->event_read_complete = 1;
-      //*HR*                                  tag_raise_event(tag, PLCTAG_EVENT_READ_COMPLETED, tag->status);
-
-                                        /* wake immediately */
-                                        plc_tag_tickler_wake();
-                                    //cond_signal(tag->tag_cond_wait);
-                                    tag_.tag_cond_wait.cond_signal();
-                                    }
-
-                                    if (tag_.write_complete)
-                                    {
-                                        tag_.write_complete = false;
-                                        tag_.write_in_flight = false;
-                                        tag_.auto_sync_next_write = 0;
-
-                                        // tag->event_write_complete = 1;
-   //*HR*                                        tag_raise_event(tag, PLCTAG_EVENT_WRITE_COMPLETED, tag->status);
-
-                                        /* wake immediately */
-                                        plc_tag_tickler_wake();
-                                        //cond_signal(tag->tag_cond_wait);
-                                        tag_.tag_cond_wait.cond_signal( );
-                                    }
-                                //}
-
-                                /* wake up earlier if the time until the next write wake up is sooner. */
-                                if (tag_.auto_sync_next_write != null && tag_.auto_sync_next_write < tag_tickler_wait_timeout_end)
-                                {
-                                    tag_tickler_wait_timeout_end = tag_.auto_sync_next_write;
-                                }
-
-                                /* wake up earlier if the time until the next read wake up is sooner. */
-                                if (tag_.auto_sync_next_read!=null && tag_.auto_sync_next_read < tag_tickler_wait_timeout_end)
-                                {
-                                    tag_tickler_wait_timeout_end = tag_.auto_sync_next_read;
-                                }
-
-                                /* we are done with the tag API mutex now. */
-                                //mutex_unlock(tag->api_mutex);
-                                tag_.api_mutex.mutex_unlock();
-
-                                /* call callbacks */
-     //*HR*                           plc_tag_generic_handle_event_callbacks(tag);
-                            }
-                            else
-                            {
-                                //pdebug(DEBUG_DETAIL, "Skipping tag as it is already locked.");
+                                /* wake immediately */
+                                plc_tag_tickler_wake();
+                                //cond_signal(tag->tag_cond_wait);
+                                tag_.tag_cond_wait.cond_signal();
                             }
 
+                            if (tag_.write_complete)
+                            {
+                                tag_.write_complete = false;
+                                tag_.write_in_flight = false;
+                                tag_.auto_sync_next_write = 0;
+
+                                // tag->event_write_complete = 1;
+                                //*HR*                                        tag_raise_event(tag, PLCTAG_EVENT_WRITE_COMPLETED, tag->status);
+
+                                /* wake immediately */
+                                plc_tag_tickler_wake();
+                                //cond_signal(tag->tag_cond_wait);
+                                tag_.tag_cond_wait.cond_signal();
+                            }
+                            //}
+
+                            /* wake up earlier if the time until the next write wake up is sooner. */
+                            if (tag_.auto_sync_next_write != null && tag_.auto_sync_next_write < tag_tickler_wait_timeout_end)
+                            {
+                                tag_tickler_wait_timeout_end = tag_.auto_sync_next_write;
+                            }
+
+                            /* wake up earlier if the time until the next read wake up is sooner. */
+                            if (tag_.auto_sync_next_read != null && tag_.auto_sync_next_read < tag_tickler_wait_timeout_end)
+                            {
+                                tag_tickler_wait_timeout_end = tag_.auto_sync_next_read;
+                            }
+
+                            /* we are done with the tag API mutex now. */
+                            //mutex_unlock(tag->api_mutex);
+                            tag_.api_mutex.mutex_unlock();
+
+                            /* call callbacks */
+                            //*HR*                           plc_tag_generic_handle_event_callbacks(tag);
                         }
                         else
                         {
-                            //pdebug(DEBUG_DETAIL, "Tag has its own tickler.");
+                            //pdebug(DEBUG_DETAIL, "Skipping tag as it is already locked.");
                         }
 
-                        // pdebug(DEBUG_DETAIL, "Current time %" PRId64 ".", time_ms());
-                        // pdebug(DEBUG_DETAIL, "Time to wake %" PRId64 ".", tag_tickler_wait_timeout_end);
-                        // pdebug(DEBUG_DETAIL, "Auto read time %" PRId64 ".", tag->auto_sync_next_read);
-                        // pdebug(DEBUG_DETAIL, "Auto write time %" PRId64 ".", tag->auto_sync_next_write);
+                    }
+                    else
+                    {
+                        //pdebug(DEBUG_DETAIL, "Tag has its own tickler.");
+                    }
 
-                        //debug_set_tag_id(0);
-   //*ELIM**                 }
+                    // pdebug(DEBUG_DETAIL, "Current time %" PRId64 ".", time_ms());
+                    // pdebug(DEBUG_DETAIL, "Time to wake %" PRId64 ".", tag_tickler_wait_timeout_end);
+                    // pdebug(DEBUG_DETAIL, "Auto read time %" PRId64 ".", tag->auto_sync_next_read);
+                    // pdebug(DEBUG_DETAIL, "Auto write time %" PRId64 ".", tag->auto_sync_next_write);
+
+                    //debug_set_tag_id(0);
+                    //*ELIM**                 }
 
                     /*if (tag)
                     {
@@ -1346,7 +1981,7 @@ namespace Alpiste.Lib
                     //debug_set_tag_id(0);
                 }
 
-                if (tag_tickler_wait!=null)
+                if (tag_tickler_wait != null)
                 {
                     Int64 time_to_wait = tag_tickler_wait_timeout_end - Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
                     int wait_rc = PLCTAG_STATUS_OK;
@@ -1370,8 +2005,10 @@ namespace Alpiste.Lib
                         //pdebug(DEBUG_DETAIL, "Not waiting as time to wake is in the past.");
                     }
                 }
+                lock (tags)
+                    cant_tags = tags.Count;
             }
-
+            library_initialized = false;
             //debug_set_tag_id(0);
 
             //pdebug(DEBUG_INFO, "Terminating.");
@@ -1379,24 +2016,13 @@ namespace Alpiste.Lib
             //THREAD_RETURN(0);
         }
 
-        //public delegate void EventDelegate(int status);
-
-       // public event EventHandler PLCTAG_EVENT_READ_COMPLETED;
-        public event EventDelegate PLCTAG_EVENT_READ_COMPLETED;
-        public event EventDelegate PLCTAG_EVENT_WRITE_COMPLETED;
-
-        /*protected virtual void on_PLCTAG_EVENT_READ_COMPLETED(EventArgs e)
-        {
-            PLCTAG_EVENT_READ_COMPLETED?.Invoke(this, e);
-        }*/
-
         static void tag_tickler_func()
         {
             while (!library_terminating)
             {
                 /* what is the maximum time we will wait until */
                 tag_tickler_wait_timeout_end = Alpiste.Utils.Milliseconds.ms() + TAG_TICKLER_TIMEOUT_MS;
-            
+
                 PlcTag[] tags_array;
                 lock (tags)
                     tags_array = tags.Values.ToArray();
@@ -1421,7 +2047,7 @@ namespace Alpiste.Lib
                                 //*HR*                                  tag_raise_event(tag, PLCTAG_EVENT_READ_COMPLETED, tag->status);
                                 //tag.PLCTAG_EVENT_READ_COMPLETED?.Invoke(tag.status);
                                 tag.event_read_complete = true;
-                                tag.event_read_complete_status = (byte) tag.status_;
+                                tag.event_read_complete_status = (byte)tag.status_;
                                 tag.event_read_complete_enable = false;
 
 
@@ -1441,7 +2067,7 @@ namespace Alpiste.Lib
                                 //*HR*                                        tag_raise_event(tag, PLCTAG_EVENT_WRITE_COMPLETED, tag->status);
                                 //tag.PLCTAG_EVENT_WRITE_COMPLETED?.Invoke(tag.status);
                                 tag.event_write_complete = true;
-                                tag.event_write_complete_status = (byte) tag.status_;
+                                tag.event_write_complete_status = (byte)tag.status_;
                                 tag.event_write_complete_enable = false;
 
 
@@ -1450,7 +2076,7 @@ namespace Alpiste.Lib
                                 tag_tickler_wait.cond_signal();
                                 tag.tag_cond_wait.cond_signal();
                             }
-                    
+
                             /* wake up earlier if the time until the next write wake up is sooner. */
                             if (tag.auto_sync_next_write != 0 && tag.auto_sync_next_write < tag_tickler_wait_timeout_end)
                             {
@@ -1485,38 +2111,186 @@ namespace Alpiste.Lib
                     // pdebug(DEBUG_DETAIL, "Auto read time %" PRId64 ".", tag->auto_sync_next_read);
                     // pdebug(DEBUG_DETAIL, "Auto write time %" PRId64 ".", tag->auto_sync_next_write);
 
-                    
+
                 }
 
-        //        if (tag_tickler_wait != null)
-        //        {
-                    Int64 time_to_wait = tag_tickler_wait_timeout_end - Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
-                    int wait_rc = PLCTAG_STATUS_OK;
+                //        if (tag_tickler_wait != null)
+                //        {
+                Int64 time_to_wait = tag_tickler_wait_timeout_end - Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
+                int wait_rc = PLCTAG_STATUS_OK;
 
-                    if (time_to_wait < TAG_TICKLER_TIMEOUT_MIN_MS)
-                    {
-                        time_to_wait = TAG_TICKLER_TIMEOUT_MIN_MS;
-                    }
+                if (time_to_wait < TAG_TICKLER_TIMEOUT_MIN_MS)
+                {
+                    time_to_wait = TAG_TICKLER_TIMEOUT_MIN_MS;
+                }
 
-                    if (time_to_wait > 0)
+                if (time_to_wait > 0)
+                {
+                    wait_rc = tag_tickler_wait.cond_wait((int)time_to_wait);
+                    if (wait_rc == PLCTAG_ERR_TIMEOUT)
                     {
-                        wait_rc = tag_tickler_wait.cond_wait((int)time_to_wait);
-                        if (wait_rc == PLCTAG_ERR_TIMEOUT)
-                        {
-                            //pdebug(DEBUG_DETAIL, "Tag tickler thread timed out waiting for something to do.");
-                        }
+                        //pdebug(DEBUG_DETAIL, "Tag tickler thread timed out waiting for something to do.");
                     }
-                    else
-                    {
-                        //pdebug(DEBUG_DETAIL, "Not waiting as time to wake is in the past.");
-                    }
-       //         }
+                }
+                else
+                {
+                    //pdebug(DEBUG_DETAIL, "Not waiting as time to wake is in the past.");
+                }
+                //         }
             }
         }
 
+        public static int plc_tag_destroy(Int32 tag_id)
+        {
+            PlcTag tag = null;
+
+            //debug_set_tag_id((int)tag_id);
+
+            //pdebug(DEBUG_INFO, "Starting.");
+
+            if (tag_id <= 0 || tag_id >= TAG_ID_MASK)
+            {
+                //pdebug(DEBUG_WARN, "Called with zero or invalid tag!");
+                return PLCTAG_ERR_NULL_PTR;
+            }
+
+
+            /*critical_block(tag_lookup_mutex) {
+                tag = hashtable_remove(tags, tag_id);
+            }*/
+
+            tag_lookup_mutex.mutex_lock();
+            //lock (tags)
+            {
+                //tag = tags.GetValueOrDefault(tag_id);
+                bool b = tags.TryGetValue(tag_id, out tag);
+                if (!b) tag = null;
+
+                if (tag != null)
+                {
+                    tags.Remove(tag_id);
+                }
+                /*foreach (PlcTag tag_ in tags)
+                {
+                    if (tag_.tag_id == tag_id)
+                    {
+                        tag = tag_;
+                        tags.Remove(tag_);
+                        break;
+                    }
+                }*/
+
+            }
+
+            tag_lookup_mutex.mutex_unlock();
+
+            /*if (!tag)
+            {
+                pdebug(DEBUG_WARN, "Called with non-existent tag!");
+                return PLCTAG_ERR_NOT_FOUND;
+            }*/
+
+            /* abort anything in flight */
+            //pdebug(DEBUG_DETAIL, "Aborting any in-flight operations.");
+
+            tag.api_mutex.mutex_lock();
+            //critical_block(tag->api_mutex)
+            {
+                /*if (tag->vtable && tag->vtable->abort)
+                {
+                    /* Force a clean up. */
+                /*    tag->vtable->abort(tag);
+                }
+                */
+                tag.abort();
+
+
+                //tag_raise_event(tag, PLCTAG_EVENT_DESTROYED, PLCTAG_STATUS_OK);
+
+            }
+            tag.api_mutex.mutex_unlock();
+
+            /* wake the tickler */
+            plc_tag_tickler_wake();
+
+            tag.plc_tag_generic_handle_event_callbacks();
+
+            /* release the reference outside the mutex. */
+            //rc_dec(tag);
+
+            //pdebug(DEBUG_INFO, "Done.");
+
+            //debug_set_tag_id(0);
+            tag.Dispose();
+
+            return PLCTAG_STATUS_OK;
+        }
+
+        public static PlcTag lookup_tag(Int32 tag_id)
+        {
+            PlcTag tag = null;
+
+            tag_lookup_mutex.mutex_lock();
+            //critical_block(tag_lookup_mutex) {
+            {
+
+                //tag = hashtable_get(tags, (int64_t)tag_id);
+                //tag = tags.GetValueOrDefault(tag_id);
+                bool b = tags.TryGetValue(tag_id, out tag);
+                if (!b) tag = null;
+
+                if (tag != null)
+                {
+                    //debug_set_tag_id(tag->tag_id);
+                }
+                else
+                {
+                    /* TODO - remove this. */
+                    //pdebug(DEBUG_WARN, "Tag with ID %d not found.", tag_id);
+                }
+
+                if ((tag != null) && tag.tag_id == tag_id)
+                {
+                    //pdebug(DEBUG_SPEW, "Found tag %p with id %d.", tag, tag->tag_id);
+                    //tag = rc_inc(tag);
+                }
+                else
+                {
+                    //debug_set_tag_id(0);
+                    tag = null;
+                }
+            }
+            tag_lookup_mutex.mutex_unlock();
+
+            return tag;
+        }
+
+
+
+        #endregion
+
+        public delegate void TagCallbackFunc/*(int hwnd, int lParam);*/ (int tag_id, int Event, int status, object userdata);
+        public delegate void tag_extended_callback_func /*(int32_t tag_id, int event, int status, void* user_data)*/
+            (int tag_id, int Event, int status, Object user_data);
+
+        public static Cond tag_tickler_wait = new Cond(); //null;
+        
+        protected static bool library_terminating = false;
+
+
+        const int TAG_TICKLER_TIMEOUT_MS = 100;
+        const int TAG_TICKLER_TIMEOUT_MIN_MS = 10;
+        static Int64 tag_tickler_wait_timeout_end = 0;
+        static mutex_t tag_lookup_mutex = null;
+
+
+        #region Manejo de Eventos
+
         public delegate void EventDelegate(int status, object userdata);
 
-        // public event EventHandler PLCTAG_EVENT_READ_COMPLETED;
+        public event EventDelegate PLCTAG_EVENT_READ_COMPLETED;
+        public event EventDelegate PLCTAG_EVENT_WRITE_COMPLETED;
+
         public event EventDelegate PLCTAG_EVENT_CREATED;
         public event EventDelegate PLCTAG_EVENT_READ_STARTED;
         public event EventDelegate PLCTAG_EVENT_WRITE_STARTED;
@@ -1609,7 +2383,9 @@ namespace Alpiste.Lib
             } /* end of API mutex critical area. */
         }
 
+        #endregion
 
+        #region Mutexes
 
         /***************************************************************************
          ******************************* Mutexes ***********************************
@@ -1773,722 +2549,23 @@ namespace Alpiste.Lib
 
         }
 
-        /*
-         * plc_tag_generic_tickler
-         *
-         * This implements the protocol-independent tickling functions such as handling
-         * automatic tag operations and callbacks.
-         */
-
-        void plc_tag_generic_tickler_(/*plc_tag_p tag*/)
-        {
-            /*if (tag)
-            {*/
-                //debug_set_tag_id(tag->tag_id);
-
-                //pdebug(DEBUG_DETAIL, "Tickling tag %d.", tag->tag_id);
-
-                /* if this tag has automatic writes, then there are many things we should check */
-            if (auto_sync_write_ms > 0)
-            {
-                    /* has the tag been written to? */
-                    if (tag_is_dirty)
-                    {
-                        /* abort any in flight read if the tag is dirty. */
-                        if (read_in_flight)
-                        {
-                        //if (tag->vtable && tag->vtable->abort)
-                        //{
-                        //    tag->vtable->abort(tag);
-                        //}
-                            abort();
-
-                            //pdebug(DEBUG_DETAIL, "Aborting in-flight automatic read!");
-
-                            read_complete = false;
-                            read_in_flight = false;
-
-                            /* TODO - should we report an ABORT event here? */
-                            //tag->event_operation_aborted = 1;
-      //*HR*                      tag_raise_event(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_ABORT);
-                        }
-
-                        /* have we already done something about automatic reads? */
-                        if (auto_sync_next_write == 0)
-                        {
-                            /* we need to queue up a new write. */
-                            auto_sync_next_write = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/ + auto_sync_write_ms;
-
-                            //pdebug(DEBUG_DETAIL, "Queueing up automatic write in %dms.", tag->auto_sync_write_ms);
-                        }
-                        else if (!write_in_flight && auto_sync_next_write <= Alpiste.Utils.Milliseconds.ms() /*time_ms()*/)
-                        {
-                            //pdebug(DEBUG_DETAIL, "Triggering automatic write start.");
-
-                            /* clear out any outstanding reads. */
-                            if (read_in_flight)
-                            {
-                                //if (tag->vtable && tag->vtable->abort)
-                                //{
-                                //    tag->vtable->abort(tag);
-                                abort();
-                                //}
-
-                                read_in_flight = false;
-                            }
-
-                            tag_is_dirty = false;
-                            write_in_flight = true;
-                            auto_sync_next_write = 0;
-
-                            //if (tag->vtable && tag->vtable->write)
-                            //{
-                                status_ = /*(int8_t)tag->vtable->*/write(/*tag*/);
-                            //}
-
-                            // tag->event_write_started = 1;
-        //*HR*                    tag_raise_event(tag, PLCTAG_EVENT_WRITE_STARTED, tag->status);
-                        }
-                    }
-            //}
-
-                /* if this tag has automatic reads, we need to check that state too. */
-                if (auto_sync_read_ms > 0)
-                {
-                    Int64 current_time = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
-
-                    // /* spread these out randomly to avoid too much clustering. */
-                    // if(tag->auto_sync_next_read == 0) {
-                    //     tag->auto_sync_next_read = current_time - (rand() % tag->auto_sync_read_ms);
-                    // }
-
-                    /* do we need to read? */
-                    if (auto_sync_next_read < current_time)
-                    {
-                        /* make sure that we do not have an outstanding read or write. */
-                        if (!read_in_flight && !tag_is_dirty && !write_in_flight)
-                        {
-                            Int64 periods = 0;
-
-                            //pdebug(DEBUG_DETAIL, "Triggering automatic read start.");
-
-                            read_in_flight = true;
-
-                            //if (tag->vtable && tag->vtable->read)
-                            //{
-                                status_ = /*(int8_t)tag->vtable->*/read(/*tag*/);
-                            //}
-
-                            // tag->event_read_started = 1;
-     //*HR*                       tag_raise_event(tag, PLCTAG_EVENT_READ_STARTED, tag->status);
-
-                            /*
-                            * schedule the next read.
-                            *
-                            * Note that there will be some jitter.  In that case we want to skip
-                            * to the next read time that is a whole multiple of the read period.
-                            *
-                            * This keeps the jitter from slowly moving the polling cycle.
-                            *
-                            * Round up to the next period.
-                            */
-                            periods = (current_time - auto_sync_next_read + (auto_sync_read_ms - 1)) / auto_sync_read_ms;
-
-                            /* warn if we need to skip more than one period. */
-                            if (periods > 1)
-                            {
-                                //pdebug(DEBUG_WARN, "Skipping %" PRId64 " periods of %" PRId32 "ms.", periods, tag->auto_sync_read_ms);
-                            }
-
-                            auto_sync_next_read += (periods * auto_sync_read_ms);
-                            //pdebug(DEBUG_DETAIL, "Scheduling next read at time %" PRId64 ".", tag->auto_sync_next_read);
-                        }
-                        else
-                        {
-                            //pdebug(DEBUG_SPEW, "Unable to start read tag->read_in_flight=%d, tag->tag_is_dirty=%d, tag->write_in_flight=%d!", tag->read_in_flight, tag->tag_is_dirty, tag->write_in_flight);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                //pdebug(DEBUG_WARN, "Called with null tag pointer!");
-            }
-
-            //pdebug(DEBUG_DETAIL, "Done.");
-
-            //debug_set_tag_id(0);
-        }
-
-        void plc_tag_generic_tickler()
-        {
-            if (auto_sync_write_ms > 0)
-            {
-                /* has the tag been written to? */
-                if (tag_is_dirty)
-                {
-                    /* abort any in flight read if the tag is dirty. */
-                    if (read_in_flight)
-                    {
-                        abort();
-
-                        //pdebug(DEBUG_DETAIL, "Aborting in-flight automatic read!");
-
-                        read_complete = false;
-                        read_in_flight = false;
-
-                        /* TODO - should we report an ABORT event here? */
-                        //tag->event_operation_aborted = 1;
-                        //*HR*                      tag_raise_event(tag, PLCTAG_EVENT_ABORTED, PLCTAG_ERR_ABORT);
-                    }
-
-                    /* have we already done something about automatic reads? */
-                    if (auto_sync_next_write == 0)
-                    {
-                        /* we need to queue up a new write. */
-                        auto_sync_next_write = Alpiste.Utils.Milliseconds.ms() + auto_sync_write_ms;
-
-                        //pdebug(DEBUG_DETAIL, "Queueing up automatic write in %dms.", tag->auto_sync_write_ms);
-                    }
-                    else if (!write_in_flight && auto_sync_next_write <= Alpiste.Utils.Milliseconds.ms())
-                    {
-                        //pdebug(DEBUG_DETAIL, "Triggering automatic write start.");
-
-                        /* clear out any outstanding reads. */
-                        if (read_in_flight)
-                        {
-                            abort();
-                            
-                            read_in_flight = false;
-                        }
-
-                        tag_is_dirty = false;
-                        write_in_flight = true;
-                        auto_sync_next_write = 0;
-
-                        status_ = write();
-                        
-                        // tag->event_write_started = 1;
-                        //*HR*                    tag_raise_event(tag, PLCTAG_EVENT_WRITE_STARTED, tag->status);
-                    }
-                }
-
-                /* if this tag has automatic reads, we need to check that state too. */
-                if (auto_sync_read_ms > 0)
-                {
-                    Int64 current_time = Alpiste.Utils.Milliseconds.ms() /*time_ms()*/;
-
-                    // /* spread these out randomly to avoid too much clustering. */
-                    // if(tag->auto_sync_next_read == 0) {
-                    //     tag->auto_sync_next_read = current_time - (rand() % tag->auto_sync_read_ms);
-                    // }
-
-                    /* do we need to read? */
-                    if (auto_sync_next_read < current_time)
-                    {
-                        /* make sure that we do not have an outstanding read or write. */
-                        if (!read_in_flight && !tag_is_dirty && !write_in_flight)
-                        {
-                            Int64 periods = 0;
-
-                            //pdebug(DEBUG_DETAIL, "Triggering automatic read start.");
-
-                            read_in_flight = true;
-
-                            status_ = read();
-                    
-                            // tag->event_read_started = 1;
-                            //*HR*                       tag_raise_event(tag, PLCTAG_EVENT_READ_STARTED, tag->status);
-
-                            /*
-                            * schedule the next read.
-                            *
-                            * Note that there will be some jitter.  In that case we want to skip
-                            * to the next read time that is a whole multiple of the read period.
-                            *
-                            * This keeps the jitter from slowly moving the polling cycle.
-                            *
-                            * Round up to the next period.
-                            */
-                            periods = (current_time - auto_sync_next_read + (auto_sync_read_ms - 1)) / auto_sync_read_ms;
-
-                            /* warn if we need to skip more than one period. */
-                            if (periods > 1)
-                            {
-                                //pdebug(DEBUG_WARN, "Skipping %" PRId64 " periods of %" PRId32 "ms.", periods, tag->auto_sync_read_ms);
-                            }
-
-                            auto_sync_next_read += (periods * auto_sync_read_ms);
-                            //pdebug(DEBUG_DETAIL, "Scheduling next read at time %" PRId64 ".", tag->auto_sync_next_read);
-                        }
-                        else
-                        {
-                            //pdebug(DEBUG_SPEW, "Unable to start read tag->read_in_flight=%d, tag->tag_is_dirty=%d, tag->write_in_flight=%d!", tag->read_in_flight, tag->tag_is_dirty, tag->write_in_flight);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                //pdebug(DEBUG_WARN, "Called with null tag pointer!");
-            }
-
-            //pdebug(DEBUG_DETAIL, "Done.");
-
-            //debug_set_tag_id(0);
-        }
+        #endregion 
 
 
-        /*
-         * initialize_modules() is called the first time any kind of tag is
-         * created.  It will be called before the tag creation routines are
-         * run.
-         */
-
+        
         static mutex_t lib_mutex = new mutex_t();
         static bool library_initialized = false;
         private bool disposedValue;
 
-        static int initialize_modules()
-        {
-            int rc = PLCTAG_STATUS_OK;
+        
+        
 
-            {
-                /*
-                * guard library initialization with a mutex.
-                *
-                * This prevents busy waiting as would happen with just a spin lock.
-                */
-                lib_mutex.mutex_lock();
-                {
-                    if (!library_initialized)
-                    {
-                        //pdebug(DEBUG_INFO, "Initializing library modules.");
-                        rc = lib_init();
 
-                        //pdebug(DEBUG_INFO, "Initializing AB module.");
-                        if (rc == PLCTAG_STATUS_OK)
-                        {
- //*HR*                           rc = ab_init();
-                        }
 
-                        //pdebug(DEBUG_INFO, "Initializing Modbus module.");
-                        if (rc == PLCTAG_STATUS_OK)
-                        {
-//*HR*                            rc = mb_init();
-                        }
+ 
+        
 
-                        //pdebug(DEBUG_INFO, "Initializing Omron module.");
-                        if (rc == PLCTAG_STATUS_OK)
-                        {
-//*HR*                            rc = omron_init();
-                        }
-
-                        /* hook the destructor */
-                        //*HR*                        atexit(plc_tag_shutdown);
-                        //var process = System.Diagnostics.Process.GetCurrentProcess(); //.Start(startInfo);
-                        //System.Diagnostics.Process.GetCurrentProcess().Exited += (a, b) => plc_tag_shutdown();
-                        //AppDomain.CurrentDomain.ProcessExit += (a, b) => //process.Kill();
-                        //    plc_tag_shutdown();
-
-                        /* do this last */
-                        library_initialized = true;
-
-                        //pdebug(DEBUG_INFO, "Done initializing library modules.");
-                    }
-                }
-                lib_mutex.mutex_unlock();
-            }
-
-            //pdebug(DEBUG_INFO, "Done.");
-
-            return rc;
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    // TODO: eliminar el estado administrado (objetos administrados)
-
-                }
-
-                abort();
-                lock (tags) tags.Remove(this.tag_id);
-                
-                if (tags.Count == 0)
-                    {
-                        lib_teardown();
-                    }
-                
-                // TODO: liberar los recursos no administrados (objetos no administrados) y reemplazar el finalizador
-                // TODO: establecer los campos grandes como NULL
-                disposedValue = true;
-            }
-        }
-
-        // // TODO: reemplazar el finalizador solo si "Dispose(bool disposing)" tiene código para liberar los recursos no administrados
-        // ~PlcTag()
-        // {
-        //     // No cambie este código. Coloque el código de limpieza en el método "Dispose(bool disposing)".
-        //     Dispose(disposing: false);
-        // }
-
-        public void Dispose()
-        {
-            // No cambie este código. Coloque el código de limpieza en el método "Dispose(bool disposing)".
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-
-        public static int plc_tag_destroy(Int32 tag_id)
-        {
-            PlcTag tag = null;
-
-            //debug_set_tag_id((int)tag_id);
-
-            //pdebug(DEBUG_INFO, "Starting.");
-
-            if (tag_id <= 0 || tag_id >= TAG_ID_MASK)
-            {
-                //pdebug(DEBUG_WARN, "Called with zero or invalid tag!");
-                return PLCTAG_ERR_NULL_PTR;
-            }
-
-
-            /*critical_block(tag_lookup_mutex) {
-                tag = hashtable_remove(tags, tag_id);
-            }*/
-
-            tag_lookup_mutex.mutex_lock();
-            //lock (tags)
-            {
-                //tag = tags.GetValueOrDefault(tag_id);
-                bool b = tags.TryGetValue(tag_id, out tag);
-                if (!b) tag = null;
-
-                if (tag !=null)
-                {
-                    tags.Remove(tag_id);
-                }
-                /*foreach (PlcTag tag_ in tags)
-                {
-                    if (tag_.tag_id == tag_id)
-                    {
-                        tag = tag_;
-                        tags.Remove(tag_);
-                        break;
-                    }
-                }*/
-                
-            }
-
-            tag_lookup_mutex.mutex_unlock();
-
-            /*if (!tag)
-            {
-                pdebug(DEBUG_WARN, "Called with non-existent tag!");
-                return PLCTAG_ERR_NOT_FOUND;
-            }*/
-
-            /* abort anything in flight */
-            //pdebug(DEBUG_DETAIL, "Aborting any in-flight operations.");
-
-            tag.api_mutex.mutex_lock();
-            //critical_block(tag->api_mutex)
-            {
-                /*if (tag->vtable && tag->vtable->abort)
-                {
-                    /* Force a clean up. */
-                /*    tag->vtable->abort(tag);
-                }
-                */
-                tag.abort();
-
-
-                //tag_raise_event(tag, PLCTAG_EVENT_DESTROYED, PLCTAG_STATUS_OK);
-
-            }
-            tag.api_mutex.mutex_unlock();
-
-            /* wake the tickler */
-            plc_tag_tickler_wake();
-
-            tag.plc_tag_generic_handle_event_callbacks();
-
-            /* release the reference outside the mutex. */
-            //rc_dec(tag);
-
-            //pdebug(DEBUG_INFO, "Done.");
-
-            //debug_set_tag_id(0);
-            tag.Dispose(); 
-            
-            return PLCTAG_STATUS_OK;
-        }
-
-
-
-        //*HR*  Para ser usado con Modbus
-
-        //        int plc_tag_generic_wake_tag_impl(const char* func, int line_num, plc_tag_p tag)
-        //{
-        //    int rc = PLCTAG_STATUS_OK;
-        //
-        //    pdebug(DEBUG_DETAIL, "Starting. Called from %s:%d.", func, line_num);
-        //
-        //    if(!tag) {
-        //        pdebug(DEBUG_WARN, "Called from %s:%d when tag is NULL!", func, line_num);
-        //        return PLCTAG_ERR_NULL_PTR;
-        //    }
-        //
-        //    if(!tag->tag_cond_wait) {
-        //        pdebug(DEBUG_WARN, "Called from %s:%d when tag condition var is NULL!", func, line_num);
-        //        return PLCTAG_ERR_NULL_PTR;
-        //    }
-        //
-        //    rc = cond_signal(tag->tag_cond_wait);
-        //    if(rc != PLCTAG_STATUS_OK) {
-        //        pdebug(DEBUG_WARN, "Error %s trying to signal condition variable in call from %s:%d", plc_tag_decode_error(rc), func, line_num);
-        //        return rc;
-        //    }
-        //
-        //    pdebug(DEBUG_DETAIL, "Done. Called from %s:%d.", func, line_num);
-        //
-        //    return rc;
-        //}
-
-        /*
-         * plc_tag_read()
-         *
-         * This function calls through the vtable in the passed tag to call
-         * the protocol-specific implementation.  That starts the read operation.
-         * If there is a timeout passed, then this routine waits for either
-         * a timeout or an error.
-         *
-         * The status of the operation is returned.
-         */
-
-        public static int plc_tag_read(Int32 id, int timeout)
-        {
-            int rc = PLCTAG_STATUS_OK;
-            PlcTag tag = lookup_tag(id);
-            int is_done = 0;
-
-            //pdebug(DEBUG_INFO, "Starting.");
-
-            if (tag == null)
-            {
-                //pdebug(DEBUG_WARN, "Tag not found.");
-                return PLCTAG_ERR_NOT_FOUND;
-            }
-
-            if (timeout < 0)
-            {
-                //pdebug(DEBUG_WARN, "Timeout must not be negative!");
-                //rc_dec(tag);
-                return PLCTAG_ERR_BAD_PARAM;
-            }
-
-            tag.api_mutex.mutex_lock();
-            do {
-                //critical_block(tag->api_mutex) {
-                //tag_raise_event(tag, PLCTAG_EVENT_READ_STARTED, PLCTAG_STATUS_OK);
-                tag.plc_tag_generic_handle_event_callbacks();
-
-                /* check read cache, if not expired, return existing data. */
-                if (tag.read_cache_expire > Alpiste.Utils.Milliseconds.ms())
-                {
-                    //pdebug(DEBUG_INFO, "Returning cached data.");
-                    rc = PLCTAG_STATUS_OK;
-                    is_done = 1;
-                    break;
-                }
-
-                if (tag.read_in_flight || tag.write_in_flight)
-                {
-                    //pdebug(DEBUG_WARN, "An operation is already in flight!");
-                    rc = PLCTAG_ERR_BUSY;
-                    is_done = 1;
-                    break;
-                }
-
-                if (tag.tag_is_dirty)
-                {
-                    //pdebug(DEBUG_WARN, "Tag has locally updated data that will be overwritten!");
-                    rc = PLCTAG_ERR_BUSY;
-                    is_done = 1;
-                    break;
-                }
-
-                tag.read_in_flight = true;
-                tag.status_ = PLCTAG_STATUS_PENDING;
-
-                /* clear the condition var */
-                //cond_clear(tag->tag_cond_wait);
-                tag.tag_cond_wait.cond_clear();
-                tag.tag_cond_wait.debug = true;
-                /* the protocol implementation does not do the timeout. */
-                //if (tag.vtable && tag.vtable->read)
-                //{
-                //rc = tag->vtable->read(tag);
-                rc = tag.read();
-                //}
-                /*else
-                {
-                    pdebug(DEBUG_WARN, "Attempt to call read on a tag that does not support reads.");
-                    rc = PLCTAG_ERR_NOT_IMPLEMENTED;
-                }*/
-
-                /* if not pending then check for success or error. */
-                if (rc != PLCTAG_STATUS_PENDING)
-                {
-                    if (rc != PLCTAG_STATUS_OK)
-                    {
-                        /* not pending and not OK, so error. Abort and clean up. */
-
-                        //pdebug(DEBUG_WARN, "Response from read command returned error %s!", plc_tag_decode_error(rc));
-
-                        //if (tag->vtable && tag->vtable->abort)
-                        //{
-                        //    tag->vtable->abort(tag);
-                        tag.abort();
-                        //}
-                    }
-
-                    tag.read_in_flight = false;
-                    is_done = 1;
-                    break;
-                }
-            } while (false);
-            tag.api_mutex.mutex_unlock();
-
-            /*
-             * if there is a timeout, then wait until we get
-             * an error or we timeout.
-             */
-
-            if ((is_done ==0 ) && timeout > 0)
-            {
-                Int64 start_time = Alpiste.Utils.Milliseconds.ms();
-                Int64 end_time = start_time + timeout;
-
-                /* wake up the tickler in case it is needed to read the tag. */
-                plc_tag_tickler_wake();
-
-                /* we loop as long as we have time left to wait. */
-                do
-                {
-                    Int64 timeout_left = end_time - Alpiste.Utils.Milliseconds.ms();
-
-                    /* clamp the timeout left to non-negative int range. */
-                    if (timeout_left < 0)
-                    {
-                        timeout_left = 0;
-                    }
-
-                    if (timeout_left > Int32.MaxValue)
-                    {
-                        timeout_left = 100; /* MAGIC, only wait 100ms in this weird case. */
-                    }
-
-                    /* wait for something to happen */
-                    //rc = cond_wait(tag->tag_cond_wait, (int)timeout_left);
-                    rc = tag.tag_cond_wait.cond_wait((int)timeout_left);
-
-                    if (rc != PLCTAG_STATUS_OK)
-                    {
-                        //pdebug(DEBUG_WARN, "Error %s while waiting for tag read to complete!", plc_tag_decode_error(rc));
-                        plc_tag_abort(id);
-
-                        break;
-                    }
-
-                    /* get the tag status. */
-                    rc = plc_tag_status(id);
-
-                    /* check to see if there was an error during tag read. */
-                    if (rc != PLCTAG_STATUS_OK && rc != PLCTAG_STATUS_PENDING)
-                    {
-                        //pdebug(DEBUG_WARN, "Error %s while trying to read tag!", plc_tag_decode_error(rc));
-                        plc_tag_abort(id);
-                    }
-                } while (rc == PLCTAG_STATUS_PENDING && Alpiste.Utils.Milliseconds.ms() < end_time);
-
-                /* the read is not in flight anymore. */
-                tag.api_mutex.mutex_lock();
-                do {
-
-                    //critical_block(tag->api_mutex) {
-                    tag.read_in_flight = false;
-                    tag.read_complete = false;
-                    is_done = 1;
-                    //tag_raise_event(tag, PLCTAG_EVENT_READ_COMPLETED, (int8_t)rc);
-                } while (false);
-                tag.api_mutex.mutex_unlock();
-
-                //pdebug(DEBUG_INFO, "elapsed time %" PRId64 "ms", (time_ms() - start_time));
-            }
-
-            if (rc == PLCTAG_STATUS_OK)
-            {
-                /* set up the cache time.  This works when read_cache_ms is zero as it is already expired. */
-                tag.read_cache_expire = Alpiste.Utils.Milliseconds.ms() + tag.read_cache_ms;
-            }
-
-            /* fire any events that are pending. */
-            tag.plc_tag_generic_handle_event_callbacks();
-
-            //rc_dec(tag);
-
-            //pdebug(DEBUG_INFO, "Done");
-
-            return rc;
-        }
-
-
-        public static PlcTag lookup_tag(Int32 tag_id)
-            {
-                PlcTag tag = null;
-
-                tag_lookup_mutex.mutex_lock();
-                //critical_block(tag_lookup_mutex) {
-                { 
-                    
-                    //tag = hashtable_get(tags, (int64_t)tag_id);
-                    //tag = tags.GetValueOrDefault(tag_id);
-                    bool b = tags.TryGetValue(tag_id, out tag);
-                    if (!b) tag = null;
-
-                    if (tag != null)
-                    {
-                        //debug_set_tag_id(tag->tag_id);
-                    }
-                    else
-                    {
-                        /* TODO - remove this. */
-                        //pdebug(DEBUG_WARN, "Tag with ID %d not found.", tag_id);
-                    }
-
-                    if ((tag !=null) && tag.tag_id == tag_id)
-                    {
-                        //pdebug(DEBUG_SPEW, "Found tag %p with id %d.", tag, tag->tag_id);
-                        //tag = rc_inc(tag);
-                    }
-                    else
-                    {
-                        //debug_set_tag_id(0);
-                        tag = null;
-                    }
-                }
-                tag_lookup_mutex.mutex_unlock();
-
-                return tag;
-            }
-
+        
         /*
          * plc_tag_abort()  
          *
