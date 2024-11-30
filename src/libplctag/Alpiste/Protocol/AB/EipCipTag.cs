@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static libplctag.NativeImport.plctag;
 
 namespace Alpiste.Protocol.AB
 {
@@ -33,7 +34,7 @@ namespace Alpiste.Protocol.AB
         override public int wake_plc() { return 0; }
         */
 
-        public EipCipTag(Utils.attr attribs, tag_extended_callback_func tag_callback_func, Object userdata) : base(attribs, tag_callback_func, userdata)
+        public EipCipTag(Utils.attr attribs, callback_func_ex tag_callback_func, Object userdata) : base(attribs, tag_callback_func, userdata)
         {
 
         }

@@ -32,4 +32,23 @@ namespace Alpiste.Lib
         ProtocolNotImplementedException(String message) : base(message) { }
     }
 
+    public class TagStringIsNullException : CannotInitializeTagException
+    {
+        public TagStringIsNullException() : this("Tag attribute string is null or zero length!") { }
+        TagStringIsNullException(String message) : base(message) { }
+    }
+
+    public class UnableToParseAttributeStringException : CannotInitializeTagException
+    {
+        public UnableToParseAttributeStringException() : this("Unable to parse attribute string!") { }
+        UnableToParseAttributeStringException(String message) : base(message) { }
+    }
+
+    public class PLCNotSupportedException : CannotInitializeTagException
+    {
+        public PLCNotSupportedException() : this("Plc not supported!") { }
+        PLCNotSupportedException(String message) : base(message) { }
+    }
+
+
 }

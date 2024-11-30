@@ -11,6 +11,7 @@ using System.Numerics;
 using Alpiste.Protocol.AB;
 using System.Reflection;
 using System.Data;
+using static libplctag.NativeImport.plctag;
 
 namespace Alpiste.Protocol.System_
 {
@@ -45,7 +46,7 @@ namespace Alpiste.Protocol.System_
             }
         }
   
-        SystemTag(attr attribs, tag_extended_callback_func tag_callback_func, Object userdata): base(attribs, tag_callback_func, userdata)  
+        SystemTag(attr attribs, callback_func_ex tag_callback_func, Object userdata): base(attribs, tag_callback_func, userdata)  
         {
 
             String name = Attr.attr_get_str(attribs, "name", null);
@@ -70,7 +71,7 @@ namespace Alpiste.Protocol.System_
             //pdebug(DEBUG_INFO, "Done");
         }
 
-        public static PlcTag system_tag_create(attr attribs, tag_extended_callback_func /*TagCallbackFunc*/ tag_callback_func, Object userdata)
+        public static PlcTag system_tag_create(attr attribs, callback_func_ex /*TagCallbackFunc*/ tag_callback_func, Object userdata)
         {
             return new SystemTag(attribs, tag_callback_func, userdata);
         }

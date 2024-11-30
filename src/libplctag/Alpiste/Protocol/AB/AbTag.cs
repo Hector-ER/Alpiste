@@ -16,6 +16,7 @@ using System.IO.IsolatedStorage;
 //using System.Net.Http.Headers;
 using System.ComponentModel.Design;
 using System.Drawing;
+using static libplctag.NativeImport.plctag;
 
 
 namespace Alpiste.Protocol.AB
@@ -199,7 +200,7 @@ namespace Alpiste.Protocol.AB
         public int write_in_progress;
         /*int connect_in_progress;*/
 
-        public static AbTag AbTag_select_constructor(attr attribs, tag_extended_callback_func tag_callback_func, Object userdata)
+        public static AbTag AbTag_select_constructor(attr attribs, callback_func_ex tag_callback_func, Object userdata)
         {
             PlcType plc_type = get_plc_type(attribs);
 
@@ -208,7 +209,8 @@ namespace Alpiste.Protocol.AB
                 case PlcType.AB_PLC_LGX:
                     return new EipCipTag(attribs, tag_callback_func, userdata);
                 default:
-                    return new AbTag(attribs, tag_callback_func, userdata);
+                    //return new AbTag(attribs, tag_callback_func, userdata);
+                    throw new PLCNotSupportedException();
             }
             ///* set up PLC-specific information. */
             //switch (plc_type)
@@ -367,7 +369,7 @@ namespace Alpiste.Protocol.AB
             //}
 
         }
-        public AbTag(attr attribs, tag_extended_callback_func tag_callback_func, Object userdata) : base(attribs, tag_callback_func, userdata)
+        protected AbTag(attr attribs, callback_func_ex tag_callback_func, Object userdata) : base(attribs, tag_callback_func, userdata)
         {
             /*
  * check the CPU type.
@@ -711,7 +713,7 @@ namespace Alpiste.Protocol.AB
             }
         }
             
-        static public AbTag ab_tag_create(attr attribs, tag_extended_callback_func tag_callback_func, Object userdata)
+        static public AbTag ab_tag_create(attr attribs, callback_func_ex tag_callback_func, Object userdata)
         {
             AbTag tag = null; 
             String path = null;
@@ -719,7 +721,8 @@ namespace Alpiste.Protocol.AB
 
             /* short circuit for split Omron*/
             if(get_plc_type(attribs) == PlcType.AB_PLC_OMRON_NJNX) {
-    //            return omron_tag_create(attribs, tag_callback_func, userdata);
+                //            return omron_tag_create(attribs, tag_callback_func, userdata);
+                throw new PLCNotSupportedException();
             }
 
             /*
