@@ -22,6 +22,7 @@ namespace Alpiste.Protocol.AB
 
     public  class Session:IDisposable
     {
+        public WeakReference<Session> weakReference; 
         const int MAX_REQUESTS = 200;
 
         const int EIP_CIP_PREFIX_SIZE = 44; /* bytes of encap header and CFP connected header */
@@ -144,6 +145,11 @@ namespace Alpiste.Protocol.AB
 
         public static Random rand = new Random();
         private bool disposedValue;
+
+        public Session()
+        {
+            weakReference = new WeakReference<Session>(this);
+        }
 
         static public Session session_find_or_create(/*ref Session tag_session,*/ attr attribs)
         {

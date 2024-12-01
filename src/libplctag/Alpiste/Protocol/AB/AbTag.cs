@@ -155,7 +155,7 @@ namespace Alpiste.Protocol.AB
 
 
            /* pointers back to session */
-        public   Session session;
+        public  /*WeakReference<*/Session session;
         //   int use_connected_msg;
 
         /* this contains the encoded name */
@@ -447,7 +447,7 @@ namespace Alpiste.Protocol.AB
              *
              * All tags need sessions.  They are the TCP connection to the gateway PLC.
              */
-            session = Session.session_find_or_create(/*ref session,*/ attribs);
+            session = Session.session_find_or_create(/*ref session,*/ attribs); //.weakReference;
             /*if (Session.session_find_or_create(ref session, attribs) != PLCTAG_STATUS_OK)
             {
                 //pdebug(DEBUG_INFO, "Unable to create session!");
@@ -455,7 +455,10 @@ namespace Alpiste.Protocol.AB
                 throw new Exception("No se puede crear sesión");
                 //return tag;
             }*/
-            session.tags_references.Add(this);
+            //WeakReference<PlcTag> weakTag = new WeakReference<PlcTag>(this);
+            //Session session_;
+            //session.TryGetTarget(out session_ );
+            session.tags_references.Add(this/*.weakTag*/);
 
 
             //pdebug(DEBUG_DETAIL, "using session=%p", tag->session);
@@ -1111,7 +1114,8 @@ namespace Alpiste.Protocol.AB
             byte read_cmd = Defs.AB_EIP_CMD_CIP_READ_FRAG;
 
             //pdebug(DEBUG_INFO, "Starting.");
-
+            //Session session;
+            //this.session.TryGetTarget(out session);
             /* get a request buffer */
             rc = session.session_create_request(tag_id, ref req);
             if (rc != PLCTAG_STATUS_OK)
@@ -1928,7 +1932,7 @@ namespace Alpiste.Protocol.AB
 
         protected override void Dispose(bool disposing)
         {
-            Session session = null;
+            //Session session = null;
 
             //pdebug(DEBUG_INFO, "Starting.");
 
@@ -1943,8 +1947,8 @@ namespace Alpiste.Protocol.AB
             /* abort anything in flight */
             //ab_tag_abort();
             abort();
-
-            session = this.session;
+            //this.session.TryGetTarget(out session);
+            //session = this.session;
 
             /* tags should always have a session.  Release it. */
             //pdebug(DEBUG_DETAIL, "Getting ready to release tag session %p", tag->session);
@@ -1959,7 +1963,7 @@ namespace Alpiste.Protocol.AB
                 pdebug(DEBUG_WARN, "No session pointer!");
             }*/
 
-            this.session = null; ;
+            //this.session = null; ;
 
             /*if (tag->ext_mutex)
             {
@@ -1998,7 +2002,7 @@ namespace Alpiste.Protocol.AB
 
             //pdebug(DEBUG_INFO, "done");
             Object o;
-            session.tags_references.Remove(this);
+            session.tags_references.Remove(this/*.weakTag*/);
             if (session.tags_references.Count ==0 )
             {
                 Session.sessions.Remove(session);  
@@ -2140,6 +2144,8 @@ namespace Alpiste.Protocol.AB
             }
 
             /* get a request buffer */
+            //Session session;
+            //this.session.TryGetTarget(out session);
             rc = session.session_create_request(/*tag->session, */tag_id, ref req);
             if (rc != PLCTAG_STATUS_OK)
             {
@@ -2310,7 +2316,8 @@ namespace Alpiste.Protocol.AB
             int max_payload_size = 0;
 
             //pdebug(DEBUG_DETAIL, "Starting.");
-
+            //Session session;
+            //this.session.TryGetTarget(out session);
             /* if we are here, then we have all the type data etc. */
             if (use_connected_msg)
             {

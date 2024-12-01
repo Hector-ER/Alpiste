@@ -32,8 +32,9 @@ namespace CSharpDotNetCore
             // Write a new value to the PLC, then read it back, and output to console
             int updatedValue = originalValue + 1; //1234;
             myTag.SetInt32(0, updatedValue);
-            myTag.Write();
+    //        myTag.Write();
             Console.WriteLine($"Updated value: {updatedValue}");
+            //myTag.Dispose();
         }
     }
 }
