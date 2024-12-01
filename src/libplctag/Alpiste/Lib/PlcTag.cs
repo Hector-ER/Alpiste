@@ -1148,7 +1148,7 @@ namespace Alpiste.Lib
     public class PlcTag: Status, IDisposable
     {
         #region Declaración de variables
-        public WeakReference<PlcTag> weakTag;
+        //public WeakReference<PlcTag> weakTag;
         public const int TAG_ID_MASK = 0xFFFFFFF;
 
         public static Dictionary<Int32, PlcTag> tags = new Dictionary<Int32, PlcTag>();
@@ -1223,11 +1223,11 @@ namespace Alpiste.Lib
         #endregion
 
         #region Constructor y Destructor
-        public PlcTag()
+        /*public PlcTag()
         {
             weakTag = new WeakReference<PlcTag>(this);
             //initialize_modules();
-        }
+        }*/
         public void TagEventHandler(Object source, EventArgs eventArgs)
         {
             AlpisteEventArgs a = (AlpisteEventArgs)eventArgs;
@@ -1238,7 +1238,7 @@ namespace Alpiste.Lib
                 callback_ (tag_id, (int)a.eventtype, a.status, (IntPtr)a.userdata);
             }
         }
-        public PlcTag(attr attribs, callback_func_ex tag_callback_func, Object userdata) : this()
+        public PlcTag(attr attribs = null, callback_func_ex tag_callback_func = null, Object userdata = null) //: this()
         {
             plc_tag_generic_init_tag(attribs, tag_callback_func, userdata);
             if (callback != null)
@@ -1309,6 +1309,7 @@ namespace Alpiste.Lib
     */
 }
 
+        
         protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)

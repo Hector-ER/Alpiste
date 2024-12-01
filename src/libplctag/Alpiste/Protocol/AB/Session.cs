@@ -307,7 +307,7 @@ namespace Alpiste.Protocol.AB
          * This calls several blocking methods and so must not keep the main mutex
          * locked during them.
          */
-        int session_init(/*ab_session_p session*/)
+        public int session_init(/*ab_session_p session*/)
         {
             int rc = PlcTag.PLCTAG_STATUS_OK;
 
@@ -347,7 +347,7 @@ namespace Alpiste.Protocol.AB
         }
 
 
-        static Session find_session_by_host_unsafe(String host, String path, int connection_group_id)
+        public static Session find_session_by_host_unsafe(String host, String path, int connection_group_id)
         {
             foreach (Session session in sessions)
             
@@ -409,7 +409,7 @@ namespace Alpiste.Protocol.AB
             return 1;
         }
 
-        static Session create_lgx_session_unsafe(String host, String path, ref int use_connected_msg, int connection_group_id)
+        public static Session create_lgx_session_unsafe(String host, String path, ref int use_connected_msg, int connection_group_id)
         {
             Session session = null;
 
@@ -432,6 +432,7 @@ namespace Alpiste.Protocol.AB
             return session;
         }
 
+        
 
         static Session session_create_unsafe(int max_payload_capacity, bool data_buffer_is_static, String host, String path, PlcType plc_type, ref int use_connected_msg, int connection_group_id)
         {

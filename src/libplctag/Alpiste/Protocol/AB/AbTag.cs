@@ -17,6 +17,7 @@ using System.IO.IsolatedStorage;
 using System.ComponentModel.Design;
 using System.Drawing;
 using static libplctag.NativeImport.plctag;
+using System.Diagnostics.Eventing.Reader;
 
 
 namespace Alpiste.Protocol.AB
@@ -98,6 +99,7 @@ namespace Alpiste.Protocol.AB
         String host;
         int port;
         String path;
+        private string gateway;
         Socket sock;
 
         /* connection variables. */
@@ -369,7 +371,7 @@ namespace Alpiste.Protocol.AB
             //}
 
         }
-        protected AbTag(attr attribs, callback_func_ex tag_callback_func, Object userdata) : base(attribs, tag_callback_func, userdata)
+        protected AbTag(attr attribs, callback_func_ex tag_callback_func = null, Object userdata = null) : base(attribs, tag_callback_func, userdata)
         {
             /*
  * check the CPU type.
@@ -715,7 +717,586 @@ namespace Alpiste.Protocol.AB
                 //*HR*                    tag_raise_event((plc_tag_p)tag, PLCTAG_EVENT_CREATED, tag->status);
             }
         }
+
+        public virtual Session create_session_unsafe()
+        {
+            int use_connected_msg = this.use_connected_msg ? 1 : 0;
+            switch (plc_type)
+            {
+                case PlcType.AB_PLC_PLC5:
+                    //            session = create_plc5_session_unsafe(session_gw, session_path, &use_connected_msg, connection_group_id);
+                    break;
+
+                case PlcType.AB_PLC_SLC:
+                    //            session = create_slc_session_unsafe(session_gw, session_path, &use_connected_msg, connection_group_id);
+                    break;
+
+                case PlcType.AB_PLC_MLGX:
+                    //            session = create_mlgx_session_unsafe(session_gw, session_path, &use_connected_msg, connection_group_id);
+                    break;
+
+                case PlcType.AB_PLC_LGX:
+                    session = Session.create_lgx_session_unsafe(gateway, path, ref use_connected_msg, connection_group_id);
+                    break;
+
+                case PlcType.AB_PLC_LGX_PCCC:
+                    //            session = create_lgx_pccc_session_unsafe(session_gw, session_path, &use_connected_msg, connection_group_id);
+                    break;
+
+                case PlcType.AB_PLC_MICRO800:
+                    //            session = create_micro800_session_unsafe(session_gw, session_path, &use_connected_msg, connection_group_id);
+                    break;
+
+                // case AB_PLC_OMRON_NJNX:
+                //     session = create_omron_njnx_session_unsafe(session_gw, session_path, &use_connected_msg, connection_group_id);
+                //     break;
+
+                default:
+                    //pdebug(DEBUG_WARN, "Unknown PLC type %d!", plc_type);
+                    session = null;
+                    break;
+            }
+            this.use_connected_msg = use_connected_msg != 0;
+            return session;
+        }
+        public  AbTag(string name, string gateway, PlcType plcType = PlcType.AB_PLC_LGX,
+            bool useConnectedMsg = true,
+            bool allowPacking = true,
+            string path = "1,0",
+            bool shareSession = true,
+            int connectionGroupId = 0,
+            bool onlyUseOldForwaredOpen = false,
+            int autoDisconnectMs = -1,
+            string elemType = "dint",
+            int elemSize = 0,
+            int elemCount = 1,
+            attr attribs = null, callback_func_ex tag_callback_func = null, Object userdata = null) : base(attribs, tag_callback_func, userdata)
+        {
+            /*
+ * check the CPU type.
+ *
+ * This determines the protocol type.
+ */
+            plc_type = plcType;
+            use_connected_msg = useConnectedMsg;
+            allow_packing = allowPacking ? 1 : 0;
+            this.path = path;
+            this.gateway = gateway;
             
+            
+
+            //Session session = null; // AB_SESSION_NULL;
+            int new_session = 0;
+            int shared_session = shareSession ? 1 : 0;
+            int auto_disconnect_enabled = 0;
+            int auto_disconnect_timeout_ms = autoDisconnectMs;
+            int only_use_old_forward_open = onlyUseOldForwaredOpen? 1 : 0;
+
+            if (auto_disconnect_timeout_ms >= 0) 
+            {
+                auto_disconnect_enabled = 1;
+            }
+
+            
+            lock (Session.session_mutex)
+            {
+                /* if we are to share sessions, then look for an existing one. */
+                if (shareSession)
+                {
+                    session = Session.find_session_by_host_unsafe(gateway, path, connection_group_id);
+                }
+                else
+                {
+                    /* no sharing, create a new one */
+                    session = null; // AB_SESSION_NULL;
+                }
+
+                if (session == null /*AB_SESSION_NULL*/)
+                {
+
+                    session = create_session_unsafe();
+
+
+                    if (session == null /*AB_SESSION_NULL*/)
+                    {
+                        //pdebug(DEBUG_WARN, "unable to create or find a session!");
+                        throw new Exception("unable to create or find a session!");
+                        
+                    }
+                    else
+                    {
+                        session.auto_disconnect_enabled = auto_disconnect_enabled;
+                        session.auto_disconnect_timeout_ms = auto_disconnect_timeout_ms;
+
+                        /* see if we have an attribute set for forcing the use of the older ForwardOpen */
+                        //pdebug(DEBUG_DETAIL, "Passed attribute to prohibit use of extended ForwardOpen is %d.", only_use_old_forward_open);
+                        //pdebug(DEBUG_DETAIL, "Existing attribute to prohibit use of extended ForwardOpen is %d.", session->only_use_old_forward_open);
+                        session.only_use_old_forward_open = (session.only_use_old_forward_open ? true : only_use_old_forward_open != 0);
+
+                        new_session = 1;
+                    }
+                }
+                else
+                {
+                    /* turn on auto disconnect if we need to. */
+                    if (!(session.auto_disconnect_enabled != 0) && (auto_disconnect_enabled != 0))
+                    {
+                        session.auto_disconnect_enabled = auto_disconnect_enabled;
+                    }
+
+                    /* disconnect period always goes down. */
+                    if (session.auto_disconnect_enabled != 0 && session.auto_disconnect_timeout_ms > auto_disconnect_timeout_ms)
+                    {
+                        session.auto_disconnect_timeout_ms = auto_disconnect_timeout_ms;
+                    }
+
+                    //pdebug(DEBUG_DETAIL, "Reusing existing session.");
+                }
+            }
+
+            /*
+             * do this OUTSIDE the mutex in order to let other threads not block if
+             * the session creation process blocks.
+             */
+
+            if (new_session != 0)
+            {
+                if (session.session_init(/*session*/)!= PLCTAG_STATUS_OK)
+                {
+                    //rc_dec(session);
+                    session = null; //AB_SESSION_NULL;
+                }
+                else
+                {
+                    /* save the status */
+                    //session->status = rc;
+                }
+            }
+
+            if (session == null)
+            {
+                //pdebug(DEBUG_INFO, "Unable to create session!");
+                //status = PLCTAG_ERR_BAD_GATEWAY;
+                throw new Exception("No se puede crear sesión");
+                //return tag;
+            }
+            //WeakReference<PlcTag> weakTag = new WeakReference<PlcTag>(this);
+            //Session session_;
+            //session.TryGetTarget(out session_ );
+            session.tags_references.Add(this/*.weakTag*/);
+
+
+            //pdebug(DEBUG_DETAIL, "using session=%p", tag->session);
+
+            int rc = PLCTAG_STATUS_OK;
+            String elem_type = null;
+            String tag_name = null;
+    //*HR*           pccc_addr_t file_addr = { 0 };
+
+            //pdebug(DEBUG_DETAIL, "Starting.");
+
+            switch (plc_type)
+            {
+                case PlcType.AB_PLC_PLC5:
+                case PlcType.AB_PLC_SLC:
+                case PlcType.AB_PLC_LGX_PCCC:
+                case PlcType.AB_PLC_MLGX:
+                /*HR*                   tag_name = Attr.attr_get_str(attribs, "name", null);
+
+                                   rc = parse_pccc_logical_address(tag_name, &file_addr);
+                                   if (rc != PLCTAG_STATUS_OK)
+                                   {
+                                       pdebug(DEBUG_WARN, "Unable to parse data file %s!", tag_name);
+                                       return rc;
+                                   }
+
+                                   tag->elem_size = file_addr.element_size_bytes;
+                                   tag->file_type = (int)file_addr.file_type;
+
+                                   break;
+               */
+                case PlcType.AB_PLC_LGX:
+                case PlcType.AB_PLC_MICRO800:
+                    // case AB_PLC_OMRON_NJNX:
+                    /* look for the elem_type attribute. */
+                    elem_type = elemType; //Attr.attr_get_str(attribs, "elem_type", null);
+                    if (elem_type != null)
+                    {
+                        if (elem_type.ToLower() == "lint" || elem_type.ToLower() == "ulint")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of 64-bit integer.");
+                            this.elem_size = 8;
+                            this.elem_type = ElemType.AB_TYPE_INT64;
+                        }
+                        else if (elem_type.ToLower() == "dint" || elem_type.ToLower() == "udint")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of 32-bit integer.");
+                            elem_size = 4;
+                            this.elem_type = ElemType.AB_TYPE_INT32;
+                        }
+                        else if (elem_type.ToLower() == "int" || elem_type.ToLower() == "uint")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of 16-bit integer.");
+                            elem_size = 2;
+                            this.elem_type = ElemType.AB_TYPE_INT16;
+                        }
+                        else if (elem_type.ToLower() == "sint" || elem_type.ToLower() == "usint")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of 8-bit integer.");
+                            elem_size = 1;
+                            this.elem_type = ElemType.AB_TYPE_INT8;
+                        }
+                        else if (elem_type.ToLower() == "bool")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of bit.");
+                            elem_size = 1;
+                            this.elem_type = ElemType.AB_TYPE_BOOL;
+                        }
+                        else if (elem_type.ToLower() == "bool array")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of bool array.");
+                            elem_size = 4;
+                            this.elem_type = ElemType.AB_TYPE_BOOL_ARRAY;
+                        }
+                        else if (elem_type.ToLower() == "real")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of 32-bit float.");
+                            elem_size = 4;
+                            this.elem_type = ElemType.AB_TYPE_FLOAT32;
+                        }
+                        else if (elem_type.ToLower() == "lreal")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of 64-bit float.");
+                            elem_size = 8;
+                            this.elem_type = ElemType.AB_TYPE_FLOAT64;
+                        }
+                        else if (elem_type.ToLower() == "string")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Fount tag element type of string.");
+                            this.elem_size = 88;
+                            this.elem_type = ElemType.AB_TYPE_STRING;
+                        }
+                        else if (elem_type.ToLower() == "short string")
+                        {
+                            //pdebug(DEBUG_DETAIL, "Found tag element type of short string.");
+                            this.elem_size = 256; /* TODO - find the real length */
+                            this.elem_type = ElemType.AB_TYPE_SHORT_STRING;
+                        }
+                        else
+                        {
+                            //pdebug(DEBUG_DETAIL, "Unknown tag type %s", elem_type);
+                            throw new Exception("Unknown tag type!");
+                            //return PlcTag.PLCTAG_ERR_UNSUPPORTED;
+                        }
+                    }
+                    else
+                    {
+                        /*
+                         * We have two cases
+                         *      * tag listing, but only for CIP PLCs (but not for UDTs!).
+                         *      * no type, just elem_size.
+                         * Otherwise this is an error.
+                         */
+                        int elem_size = elemSize; // Attr.attr_get_int(attribs, "elem_size", 0);
+                        int cip_plc = !!(this.plc_type == PlcType.AB_PLC_LGX || this.plc_type == PlcType.AB_PLC_MICRO800 /*|| tag->plc_type == AB_PLC_OMRON_NJNX*/) ? 1 : 0;
+
+                        if (cip_plc != 0)
+                        {
+                            String tmp_tag_name = name; // Attr.attr_get_str(attribs, "name", null);
+                            int special_tag_rc = PlcTag.PLCTAG_STATUS_OK;
+
+                            /* check for special tags. */
+                            /*HR*                       if (tmp_tag_name.ToLower() == "@raw")
+                                                   {
+                                                       special_tag_rc = setup_raw_tag(tag);
+                                                   }
+                                                   else if (tmp_tag_name.ToLower()!= "@tags")
+                                                   {
+                                                       special_tag_rc = setup_tag_listing_tag(tag, tmp_tag_name);
+                                                   }
+                                                   else if (Str.str_str_cmp_i(tmp_tag_name, "@udt/")!=null)
+                                                   {
+                                                       special_tag_rc = setup_udt_tag(tag, tmp_tag_name);
+                                                   } /* else not a special tag. */
+
+                            /*HR*                        if (special_tag_rc != PLCTAG_STATUS_OK)
+                                                    {
+                                                        //pdebug(DEBUG_WARN, "Error parsing tag listing name!");
+                                                        return special_tag_rc;
+                                                    }
+                            */
+                        }
+
+                        /* if we did not set an element size yet, set one. */
+                        if (this.elem_size == 0)
+                        {
+                            if (elem_size > 0)
+                            {
+                                //pdebug(DEBUG_INFO, "Setting element size to %d.", elem_size);
+                                this.elem_size = elem_size;
+                            }
+                        }
+                        else
+                        {
+                            if (elem_size > 0)
+                            {
+                                //pdebug(DEBUG_WARN, "Tag has elem_size and either is a tag listing or has elem_type, only use one!");
+                            }
+                        }
+                    }
+
+                    break;
+
+                default:
+                    throw new Exception("Unknown PLC type!");
+                    //pdebug(DEBUG_WARN, "Unknown PLC type!");
+                    //return PLCTAG_ERR_BAD_DEVICE;
+                    break;
+            }
+
+            /* set up PLC-specific information. */
+            switch (plc_type)
+            {
+                case PlcType.AB_PLC_PLC5:
+                    if (session.is_dhp == 0)
+                    {
+                        //pdebug(DEBUG_DETAIL, "Setting up PLC/5 tag.");
+
+                        if (path.Length != 0)
+                        {
+                            //pdebug(DEBUG_WARN, "A path is not supported for this PLC type if it is not for a DH+ bridge.");
+                        }
+
+                        use_connected_msg = false;
+                        //*HR*                     //tag->vtable = &plc5_vtable;
+                    }
+                    else
+                    {
+                        //pdebug(DEBUG_DETAIL, "Setting up PLC/5 via DH+ bridge tag.");
+                        use_connected_msg = true;
+                        //*HR*                    //tag->vtable = &eip_plc5_dhp_vtable;
+                    }
+
+                    //*HR*                tag.byte_order = &plc5_tag_byte_order;
+
+                    allow_packing = 0;
+                    break;
+
+                case PlcType.AB_PLC_SLC:
+                case PlcType.AB_PLC_MLGX:
+                    if (session.is_dhp == 0)
+                    {
+
+                        if (path.Length != 0)
+                        {
+                            //pdebug(DEBUG_WARN, "A path is not supported for this PLC type if it is not for a DH+ bridge.");
+                        }
+
+                        //pdebug(DEBUG_DETAIL, "Setting up SLC/MicroLogix tag.");
+                        use_connected_msg = false;
+                        //*HR*                    //tag->vtable = &slc_vtable;
+                    }
+                    else
+                    {
+                        //pdebug(DEBUG_DETAIL, "Setting up SLC/MicroLogix via DH+ bridge tag.");
+                        use_connected_msg = true;
+                        //*HR*                //tag->vtable = &eip_slc_dhp_vtable;
+                    }
+
+                    //*HR*                tag.byte_order = &slc_tag_byte_order;
+
+                    allow_packing = 0;
+                    break;
+
+                case PlcType.AB_PLC_LGX_PCCC:
+                    //pdebug(DEBUG_DETAIL, "Setting up PCCC-mapped Logix tag.");
+                    use_connected_msg = false;
+                    allow_packing = 0;
+                    //tag->vtable = &lgx_pccc_vtable;
+
+                    //*HR*                tag.byte_order = &slc_tag_byte_order;
+
+                    break;
+
+                case PlcType.AB_PLC_LGX:
+                    //pdebug(DEBUG_DETAIL, "Setting up Logix tag.");
+
+                    /* Logix tags need a path. */
+                    if (path == null && plc_type == PlcType.AB_PLC_LGX)
+                    {
+                        //pdebug(DEBUG_WARN, "A path is required for Logix-class PLCs!");
+                        status_ = PLCTAG_ERR_BAD_PARAM;
+                        throw new Exception("Se necesita un path");
+                        //return tag;
+                    }
+
+                    /* if we did not fill in the byte order elsewhere, fill it in now. */
+                    if (byte_order == null)
+                    {
+                        //pdebug(DEBUG_DETAIL, "Using default Logix byte order.");
+                        byte_order = new logix_tag_byte_order();
+                    }
+
+                    /* if this was not filled in elsewhere default to Logix */
+                    /*HR*                if (tag->vtable == &default_vtable || !tag->vtable)
+                                    {
+                                        //pdebug(DEBUG_DETAIL, "Setting default Logix vtable.");
+                                        tag->vtable = &eip_cip_vtable;
+                                    }
+                    */
+                    /* default to requiring a connection. */
+                    //use_connected_msg = Attr.attr_get_int(attribs, "use_connected_msg", 1) != 0;
+                    //allow_packing = Attr.attr_get_int(attribs, "allow_packing", 1);
+
+                    break;
+
+                case PlcType.AB_PLC_MICRO800:
+                    //pdebug(DEBUG_DETAIL, "Setting up Micro8X0 tag.");
+
+                    if (path != null || path.Length != 0)
+                    {
+                        //pdebug(DEBUG_WARN, "A path is not supported for this PLC type.");
+                    }
+
+                    /* if we did not fill in the byte order elsewhere, fill it in now. */
+                    if (byte_order == null)
+                    {
+                        //pdebug(DEBUG_DETAIL, "Using default Micro8x0 byte order.");
+                        byte_order = new logix_tag_byte_order();
+                    }
+
+                    /* if this was not filled in elsewhere default to generic *Logix */
+                    /*HR*               if (tag->vtable == &default_vtable || !tag->vtable)
+                                   {
+                                       //pdebug(DEBUG_DETAIL, "Setting default Logix vtable.");
+                                       tag->vtable = &eip_cip_vtable;
+                                   }
+                    */
+                    use_connected_msg = true;
+                    allow_packing = 0;
+
+                    break;
+
+                // case AB_PLC_OMRON_NJNX:
+                //     pdebug(DEBUG_DETAIL, "Setting up OMRON NJ/NX Series tag.");
+
+                //     if(str_length(path) == 0) {
+                //         pdebug(DEBUG_WARN,"A path is required for this PLC type.");
+                //         tag->status = PLCTAG_ERR_BAD_PARAM;
+                //         return (plc_tag_p)tag;
+                //     }
+
+                //     /* if we did not fill in the byte order elsewhere, fill it in now. */
+                //     if(!tag->byte_order) {
+                //         pdebug(DEBUG_DETAIL, "Using default Omron byte order.");
+                //         tag->byte_order = &omron_njnx_tag_byte_order;
+                //     }
+
+                //     /* if this was not filled in elsewhere default to generic *Logix */
+                //     if(tag->vtable == &default_vtable || !tag->vtable) {
+                //         pdebug(DEBUG_DETAIL, "Setting default Logix vtable.");
+                //         tag->vtable = &eip_cip_vtable;
+                //     }
+
+                //     tag->use_connected_msg = 1;
+                //     tag->allow_packing = attr_get_int(attribs, "allow_packing", 0);
+
+                //     break;
+
+                default:
+                    //pdebug(DEBUG_WARN, "Unknown PLC type!");
+                    status_ = PLCTAG_ERR_BAD_CONFIG;
+                    throw new Exception("PLC desconocido");
+                    //return tag;
+            }
+
+            /* pass the connection requirement since it may be overridden above. */
+            Attr.attr_set_int(attribs, "use_connected_msg", use_connected_msg ? 1 : 0);
+
+            /* get the element count, default to 1 if missing. */
+            elem_count = elemCount; // Attr.attr_get_int(attribs, "elem_count", 1);
+
+            switch (plc_type)
+            {
+                // case AB_PLC_OMRON_NJNX:
+                case PlcType.AB_PLC_LGX:
+                /* fall through */
+                case PlcType.AB_PLC_MICRO800:
+                    /* fill this in when we read the tag. */
+                    //tag->elem_size = 0;
+                    size = 0;
+                    data = null;
+                    break;
+
+                default:
+                    /* we still need size on non Logix-class PLCs */
+                    /* get the element size if it is not already set. */
+                    if (elem_size == 0)
+                    {
+                        elem_size = elemSize ; //Attr.attr_get_int(attribs, "elem_size", 0);
+                    }
+
+                    /* Determine the tag size */
+                    size = (elem_count) * (elem_size);
+                    if (size == 0)
+                    {
+                        /* failure! Need data_size! */
+                        //pdebug(DEBUG_WARN, "Tag size is zero!");
+                        status_ = PlcTag.PLCTAG_ERR_BAD_PARAM;
+                        throw new Exception("El tamaño del tag es cero");
+                        //return tag;
+                    }
+
+                    /* this may be changed in the future if this is a tag list request. */
+                    //   tag->data = (uint8_t*)mem_alloc(tag->size);
+                    data = new byte[size];
+
+                    /*if (data == null)
+                    {
+                        //pdebug(DEBUG_WARN, "Unable to allocate tag data!");
+                        status = PlcTag.PLCTAG_ERR_NO_MEM;
+                        throw new Exception("");
+                        //return tag;
+                    }*/
+                    break;
+            }
+
+            /*
+             * check the tag name, this is protocol specific.
+             */
+
+            if (special_tag == 0 && check_tag_name(/*tag,*/ name /*Attr.attr_get_str(attribs, "name", null)*/) != PlcTag.PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_INFO, "Bad tag name!");
+                status_ = PLCTAG_ERR_BAD_PARAM;
+                throw new Exception("Nombre de tag erroneo");
+
+
+                //return tag;
+            }
+
+            /* kick off a read to get the tag type and size. */
+            if (special_tag == 0 /*&& tag->vtable->read*/)
+            {
+                /* trigger the first read. */
+                //pdebug(DEBUG_DETAIL, "Kicking off initial read.");
+
+                first_read = 1;
+                read_in_flight = true;
+                /*.path->vtable->*/
+                read(/*(plc_tag_p)tag*/);
+                //       Thread.Sleep(1000);
+                //*HR*?                 tag_raise_event((plc_tag_p)tag, PLCTAG_EVENT_READ_STARTED, tag->status);
+            }
+            else
+            {
+                //pdebug(DEBUG_DETAIL, "Not kicking off initial read: tag is special or does not have read function.");
+
+                /* force the created event because we do not do an initial read here. */
+                //*HR*                    tag_raise_event((plc_tag_p)tag, PLCTAG_EVENT_CREATED, tag->status);
+            }
+        }
+
         static public AbTag ab_tag_create(attr attribs, callback_func_ex tag_callback_func, Object userdata)
         {
             AbTag tag = null; 

@@ -5,6 +5,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using Alpiste.Lib;
 using libplctag;
 using System;
 
@@ -35,6 +36,12 @@ namespace CSharpDotNetCore
     //        myTag.Write();
             Console.WriteLine($"Updated value: {updatedValue}");
             //myTag.Dispose();
+
+            PlcTag plcTag = new Alpiste.Protocol.AB.AbTag("Prueba_Dint", "10.12.68.155" );
+            plcTag.read();
+            Console.WriteLine($"Original value: {originalValue}");
+
+
         }
     }
 }

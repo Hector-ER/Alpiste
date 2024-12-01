@@ -34,12 +34,12 @@ namespace Alpiste.Protocol.AB
         override public int wake_plc() { return 0; }
         */
 
-        public EipCipTag(Utils.attr attribs, callback_func_ex tag_callback_func, Object userdata) : base(attribs, tag_callback_func, userdata)
+        public EipCipTag(Utils.attr attribs = null, callback_func_ex tag_callback_func = null, Object userdata = null) : base(attribs, tag_callback_func, userdata)
         {
 
         }
 
- 
+        
 
         
 
