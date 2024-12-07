@@ -768,15 +768,18 @@ namespace Alpiste.Protocol.AB
             bool onlyUseOldForwaredOpen = false,
             int autoDisconnectMs = -1,
             string elemType = "dint",
-            int elemSize = 0,
+            int elemSize = 2,
             int elemCount = 1,
-            attr attribs = null, callback_func_ex tag_callback_func = null, Object userdata = null) : base(attribs, tag_callback_func, userdata)
+            int timeout = 10000,
+            Object userData = null)
+            : base(/*timeout,  connectionGroupId,*/ null, null, userData)
         {
             /*
  * check the CPU type.
  *
  * This determines the protocol type.
  */
+            
             plc_type = plcType;
             use_connected_msg = useConnectedMsg;
             allow_packing = allowPacking ? 1 : 0;
@@ -796,7 +799,7 @@ namespace Alpiste.Protocol.AB
             {
                 auto_disconnect_enabled = 1;
             }
-
+            
             
             lock (Session.session_mutex)
             {
@@ -811,6 +814,7 @@ namespace Alpiste.Protocol.AB
                     session = null; // AB_SESSION_NULL;
                 }
 
+                
                 if (session == null /*AB_SESSION_NULL*/)
                 {
 
@@ -859,6 +863,7 @@ namespace Alpiste.Protocol.AB
              * the session creation process blocks.
              */
 
+            
             if (new_session != 0)
             {
                 if (session.session_init(/*session*/)!= PLCTAG_STATUS_OK)
@@ -1211,7 +1216,7 @@ namespace Alpiste.Protocol.AB
             }
 
             /* pass the connection requirement since it may be overridden above. */
-            Attr.attr_set_int(attribs, "use_connected_msg", use_connected_msg ? 1 : 0);
+            //Attr.attr_set_int(attribs, "use_connected_msg", use_connected_msg ? 1 : 0);
 
             /* get the element count, default to 1 if missing. */
             elem_count = elemCount; // Attr.attr_get_int(attribs, "elem_count", 1);
@@ -1295,8 +1300,129 @@ namespace Alpiste.Protocol.AB
                 /* force the created event because we do not do an initial read here. */
                 //*HR*                    tag_raise_event((plc_tag_p)tag, PLCTAG_EVENT_CREATED, tag->status);
             }
+
+            postCreate(timeout);
+
+            /* get the tag status. */
+            //rc = tag.vtable.status(tag);
+    /*        rc = status();
+
+            /* check to see if there was an error during tag creation. */
+    /*        if (rc != PLCTAG_STATUS_OK && rc != PLCTAG_STATUS_PENDING)
+            {
+                //pdebug(DEBUG_WARN, "Error %s while trying to create tag!", plc_tag_decode_error(rc));
+                /*if (tag.vtable.abort!=null)
+                {
+                    tag.vtable.abort(tag);
+                }*/
+    /*            abort();
+
+                /* remove the tag from the hashtable. */
+                /*critical_block(tag_lookup_mutex) {
+                    hashtable_remove(tags, (int64_t)tag->tag_id);
+                }*/
+    /*            lock (tags)
+                    tags.Remove(tag_id);
+
+                //rc_dec(tag);
+                throw new Exception("Error al crear el tag!");
+                //return null; // rc;
+            }
+
+            //pdebug(DEBUG_DETAIL, "Tag status after creation is %s.", plc_tag_decode_error(rc));
+
+            /*
+            * if there is a timeout, then wait until we get
+            * an error or we timeout.
+            */
+    /*        if (timeout > 0 && rc == PLCTAG_STATUS_PENDING)
+            {
+                Int64 start_time = Alpiste.Utils.Milliseconds.ms(); // time_ms();
+                Int64 end_time = start_time + timeout;
+
+                /* wake up the tickler in case it is needed to create the tag. */
+    /*            plc_tag_tickler_wake();
+
+                /* we loop as long as we have time left to wait. */
+     /*           do
+                {
+                    Int64 timeout_left = end_time - Alpiste.Utils.Milliseconds.ms(); //time_ms();
+
+                    /* clamp the timeout left to non-negative int range. */
+     /*               if (timeout_left < 0)
+                    {
+                        timeout_left = 0;
+                    }
+
+                    if (timeout_left > Int16.MaxValue /* INT_MAX*///)
+     /*               {
+                        timeout_left = 100; /* MAGIC, only wait 100ms in this weird case. */
+     /*               }
+
+                    /* wait for something to happen */
+     /*               tag_cond_wait = new Cond();
+                    rc = tag_cond_wait.cond_wait(/*tag_cond_wait,*/// (int)timeout_left);
+
+    /*                if (rc != PLCTAG_STATUS_OK)
+                    {
+                        //pdebug(DEBUG_WARN, "Error %s while waiting for tag creation to complete!", plc_tag_decode_error(rc));
+                        /*if (tag->vtable->abort)
+                        {
+                            tag->vtable->abort(tag);
+                        }*/
+    /*                    abort();
+                         
+                        /* remove the tag from the hashtable. */
+                        //critical_block(tag_lookup_mutex) {
+                        //       hashtable_remove(tags, (int64_t)tag->tag_id);
+    /*                    lock (tags)
+                            tags.Remove(tag_id);
+                        //   }
+
+                        //rc_dec(tag);
+                        throw new Exception("Error al crear el tag!");
+                        //return null; // rc;
+                    }
+
+                    /* get the tag status. */
+    /*                rc = status();  // vtable.status(tag);
+
+                    /* check to see if there was an error during tag creation. */
+    /*                if (rc != PLCTAG_STATUS_OK && rc != PLCTAG_STATUS_PENDING)
+                    {
+                        //pdebug(DEBUG_WARN, "Error %s while trying to create tag!", plc_tag_decode_error(rc));
+                        /*if (tag.vtable.abort!=null)
+                        {
+                            tag.vtable.abort(tag);
+                        }*/
+    /*                    abort();
+
+                        /* remove the tag from the hashtable. */
+                        /*critical_block(tag_lookup_mutex) {
+                            hashtable_remove(tags, (int64_t)tag->tag_id);
+                        }*/
+    /*                    lock (tags)
+                            tags.Remove(tag_id);
+
+                        //rc_dec(tag);
+                        throw new Exception("Timeout expired");
+                        //return null; // rc;
+                    }
+                } while (rc == PLCTAG_STATUS_PENDING && Alpiste.Utils.Milliseconds.ms() /*    time_ms()*/// > end_time);
+
+                /* clear up any remaining flags.  This should be refactored. */
+    /*            read_in_flight = false;
+                write_in_flight = false;
+    */
         }
 
+       
+
+        ~AbTag()
+        {
+            Console.WriteLine("Destruyendo ABTag");
+            Dispose();
+        }
         static public AbTag ab_tag_create(attr attribs, callback_func_ex tag_callback_func, Object userdata)
         {
             AbTag tag = null; 

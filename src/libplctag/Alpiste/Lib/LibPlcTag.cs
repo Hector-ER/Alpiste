@@ -1,4 +1,6 @@
-﻿namespace LibPlcTag_
+﻿using System;
+
+namespace LibPlcTag_
 {
     public class Status
     {
@@ -46,7 +48,10 @@
         public const int PLCTAG_ERR_PARTIAL = -38;
         public const int PLCTAG_ERR_BUSY = -39;
 
-        
+        ~Status()
+        {
+            Console.WriteLine("Destruyendo Status");
+        }
     }
 
 

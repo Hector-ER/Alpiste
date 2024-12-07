@@ -15,7 +15,7 @@ namespace CSharpDotNetCore
         {
             ExampleSimple.Run();
             Console.ReadKey();
-            GC.Collect();
+             GC.Collect();
         }
     }
 }

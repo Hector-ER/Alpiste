@@ -8,6 +8,7 @@
 using Alpiste.Lib;
 using libplctag;
 using System;
+using System.Reflection;
 
 namespace CSharpDotNetCore
 {
@@ -16,30 +17,42 @@ namespace CSharpDotNetCore
         public static void Run()
         {
             // Example tag configuration for a global DINT tag in an Allen-Bradley CompactLogix/ControlLogix PLC
-            var myTag = new Tag()
+                  var myTag = new Tag()
+                  {
+                      Name = "Prueba_Dint", //"SomeDINT",
+                      Gateway = "10.12.68.155", //"10.12.76.118", //"10.10.10.10",
+                      Path = "1,0",
+                      PlcType = PlcType.ControlLogix,
+                      Protocol = Protocol.ab_eip
+                  };
+
+                  // Read the value from the PLC and output to console
+                  myTag.Read();
+                  int originalValue = myTag.GetInt32(0);
+                  Console.WriteLine($"Original value: {originalValue}");
+
+                  // Write a new value to the PLC, then read it back, and output to console
+                  int updatedValue = originalValue + 1; //1234;
+                  myTag.SetInt32(0, updatedValue);
+                  myTag.Write();
+                  Console.WriteLine($"Updated value: {updatedValue}");
+                  //myTag.Dispose();
+                  System.Threading.Thread.Sleep(2000);
+           
+            do
             {
-                Name = "Prueba_Dint", //"SomeDINT",
-                Gateway = "10.12.68.155", //"10.12.76.118", //"10.10.10.10",
-                Path = "1,0",
-                PlcType = PlcType.ControlLogix,
-                Protocol = Protocol.ab_eip
-            };
-
-            // Read the value from the PLC and output to console
-            myTag.Read();
-            int originalValue = myTag.GetInt32(0);
-            Console.WriteLine($"Original value: {originalValue}");
-
-            // Write a new value to the PLC, then read it back, and output to console
-            int updatedValue = originalValue + 1; //1234;
-            myTag.SetInt32(0, updatedValue);
-    //        myTag.Write();
-            Console.WriteLine($"Updated value: {updatedValue}");
-            //myTag.Dispose();
-
+            //     PlcTag plcTag = new PlcTag(1000);
+            } while (false);
+            do { 
             PlcTag plcTag = new Alpiste.Protocol.AB.AbTag("Prueba_Dint", "10.12.68.155" );
-            plcTag.read();
-            Console.WriteLine($"Original value: {originalValue}");
+                   var result = plcTag.syncRead();
+                Console.WriteLine($"Original value: {result}");
+
+                //plcTag.Dispose();
+            }
+            while (false) ;
+            GC.Collect();
+
 
 
         }

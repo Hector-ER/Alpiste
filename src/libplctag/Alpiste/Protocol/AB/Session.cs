@@ -333,7 +333,7 @@ namespace Alpiste.Protocol.AB
 
             handler_thread = new Thread(new System.Threading.ParameterizedThreadStart(session_handler));
             handler_thread.Start(this);
-            handler_thread = null;
+            //handler_thread = null;
             /*if ((rc = thread_create((thread_p*)&(session->handler_thread), session_handler, 32 * 1024, session)) != PLCTAG_STATUS_OK)
             {
                 //pdebug(DEBUG_WARN, "Unable to create session thread!");
