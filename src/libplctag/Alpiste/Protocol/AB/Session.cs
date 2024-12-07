@@ -140,7 +140,7 @@ namespace Alpiste.Protocol.AB
 
         public static mutex_t session_mutex = new mutex_t();
         public static HashSet<Session> sessions = new HashSet<Session>();
-        public HashSet<PlcTag> tags_references = new HashSet<PlcTag>();
+        public HashSet<WeakReference<PlcTag>> tags_references = new HashSet<WeakReference<PlcTag>>();
 
 
         public static Random rand = new Random();

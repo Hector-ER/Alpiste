@@ -10,7 +10,7 @@ namespace Alpiste.Protocol.AB
 
     public class Request
     {
-        
+        public WeakReference<Request> weakReference;
          /* used to force interlocks with other threads. */
         public Object /*lock_t*/ Lock;
         public bool _lock;
@@ -38,6 +38,10 @@ namespace Alpiste.Protocol.AB
         public int request_capacity;
         public byte[] data;
 
+        public Request()
+        {
+            weakReference = new WeakReference<Request>(this);
+        }
     }
 
 }

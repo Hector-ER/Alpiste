@@ -36,19 +36,21 @@ namespace CSharpDotNetCore
                   myTag.SetInt32(0, updatedValue);
                   myTag.Write();
                   Console.WriteLine($"Updated value: {updatedValue}");
-                  //myTag.Dispose();
+              /**/    //myTag.Dispose();
                   System.Threading.Thread.Sleep(2000);
            
             do
             {
-            //     PlcTag plcTag = new PlcTag(1000);
+                 PlcTag plcTag = new PlcTag(1000);
             } while (false);
-            do { 
+            do {
+           
             PlcTag plcTag = new Alpiste.Protocol.AB.AbTag("Prueba_Dint", "10.12.68.155" );
                    var result = plcTag.syncRead();
                 Console.WriteLine($"Original value: {result}");
 
                 //plcTag.Dispose();
+                plcTag = null;
             }
             while (false) ;
             GC.Collect();

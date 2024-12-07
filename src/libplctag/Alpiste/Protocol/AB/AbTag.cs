@@ -157,7 +157,7 @@ namespace Alpiste.Protocol.AB
 
 
            /* pointers back to session */
-        public  /*WeakReference<*/Session session;
+        public  WeakReference<Session> sessionRef;
         //   int use_connected_msg;
 
         /* this contains the encoded name */
@@ -192,7 +192,7 @@ namespace Alpiste.Protocol.AB
         /* requests */
         public int pre_write_read;
         public int first_read;
-        public Request /*ab_request_p*/ req;
+        public WeakReference<Request> /*ab_request_p*/ req;
         public int offset;
 
         public int allow_packing;
@@ -449,6 +449,7 @@ namespace Alpiste.Protocol.AB
              *
              * All tags need sessions.  They are the TCP connection to the gateway PLC.
              */
+            Session session;
             session = Session.session_find_or_create(/*ref session,*/ attribs); //.weakReference;
             /*if (Session.session_find_or_create(ref session, attribs) != PLCTAG_STATUS_OK)
             {
@@ -460,8 +461,9 @@ namespace Alpiste.Protocol.AB
             //WeakReference<PlcTag> weakTag = new WeakReference<PlcTag>(this);
             //Session session_;
             //session.TryGetTarget(out session_ );
-            session.tags_references.Add(this/*.weakTag*/);
-
+            sessionRef = session.weakReference;
+            session.tags_references.Add(this.weakReference);
+            
 
             //pdebug(DEBUG_DETAIL, "using session=%p", tag->session);
 
@@ -721,6 +723,8 @@ namespace Alpiste.Protocol.AB
         public virtual Session create_session_unsafe()
         {
             int use_connected_msg = this.use_connected_msg ? 1 : 0;
+            Session session = null;
+
             switch (plc_type)
             {
                 case PlcType.AB_PLC_PLC5:
@@ -737,6 +741,7 @@ namespace Alpiste.Protocol.AB
 
                 case PlcType.AB_PLC_LGX:
                     session = Session.create_lgx_session_unsafe(gateway, path, ref use_connected_msg, connection_group_id);
+                    sessionRef = session.weakReference;
                     break;
 
                 case PlcType.AB_PLC_LGX_PCCC:
@@ -785,7 +790,7 @@ namespace Alpiste.Protocol.AB
             allow_packing = allowPacking ? 1 : 0;
             this.path = path;
             this.gateway = gateway;
-            
+            Session session = null;
             
 
             //Session session = null; // AB_SESSION_NULL;
@@ -820,7 +825,6 @@ namespace Alpiste.Protocol.AB
 
                     session = create_session_unsafe();
 
-
                     if (session == null /*AB_SESSION_NULL*/)
                     {
                         //pdebug(DEBUG_WARN, "unable to create or find a session!");
@@ -829,6 +833,8 @@ namespace Alpiste.Protocol.AB
                     }
                     else
                     {
+                        sessionRef = session.weakReference;
+
                         session.auto_disconnect_enabled = auto_disconnect_enabled;
                         session.auto_disconnect_timeout_ms = auto_disconnect_timeout_ms;
 
@@ -842,6 +848,8 @@ namespace Alpiste.Protocol.AB
                 }
                 else
                 {
+                    sessionRef = session.weakReference;
+
                     /* turn on auto disconnect if we need to. */
                     if (!(session.auto_disconnect_enabled != 0) && (auto_disconnect_enabled != 0))
                     {
@@ -888,7 +896,7 @@ namespace Alpiste.Protocol.AB
             //WeakReference<PlcTag> weakTag = new WeakReference<PlcTag>(this);
             //Session session_;
             //session.TryGetTarget(out session_ );
-            session.tags_references.Add(this/*.weakTag*/);
+            session.tags_references.Add(this.weakReference);
 
 
             //pdebug(DEBUG_DETAIL, "using session=%p", tag->session);
@@ -1824,6 +1832,8 @@ namespace Alpiste.Protocol.AB
             //Session session;
             //this.session.TryGetTarget(out session);
             /* get a request buffer */
+            Session session = null;
+            sessionRef.TryGetTarget(out session);
             rc = session.session_create_request(tag_id, ref req);
             if (rc != PLCTAG_STATUS_OK)
             {
@@ -1939,7 +1949,7 @@ namespace Alpiste.Protocol.AB
             }
 
             /* save the request for later */
-            this.req = req;
+            this.req = req.weakReference;
 
             //pdebug(DEBUG_INFO, "Done");
 
@@ -1964,7 +1974,8 @@ namespace Alpiste.Protocol.AB
             {
                 return PLCTAG_STATUS_PENDING;
             }
-
+            Session session = null;
+            sessionRef.TryGetTarget(out session);
             if (session != null)
             {
                 rc = status_;
@@ -2073,7 +2084,8 @@ namespace Alpiste.Protocol.AB
 
             /* guard against the request being deleted out from underneath us. */
             //request = rc_inc(tag->req);
-            request = req;
+            //request = req;
+            req.TryGetTarget(out request);
             rc = check_read_request_status(request);
             if (rc != PLCTAG_STATUS_OK)
             {
@@ -2709,11 +2721,14 @@ namespace Alpiste.Protocol.AB
 
             //pdebug(DEBUG_INFO, "done");
             Object o;
-            session.tags_references.Remove(this/*.weakTag*/);
+            Session session = null;
+            sessionRef.TryGetTarget(out session);
+            session.tags_references.Remove(this.weakReference);
             if (session.tags_references.Count ==0 )
             {
-                Session.sessions.Remove(session);  
-                session.Dispose();
+                Session.sessions.Remove(session);
+                session.terminating = 1;
+                //session.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -2842,7 +2857,8 @@ namespace Alpiste.Protocol.AB
             int multiple_requests = 0;
             int write_size = 0;
             int str_pad_to_multiple_bytes = 1;
-
+            Session session;
+            sessionRef.TryGetTarget(out session);
             //pdebug(DEBUG_INFO, "Starting.");
 
             if (is_bit)
@@ -3008,7 +3024,7 @@ namespace Alpiste.Protocol.AB
             }
 
             /* save the request for later */
-            this.req = req;
+            this.req = req.weakReference;
 
             //pdebug(DEBUG_INFO, "Done");
 
@@ -3022,6 +3038,8 @@ namespace Alpiste.Protocol.AB
             int data_per_packet = 0;
             int max_payload_size = 0;
 
+            Session session;
+            sessionRef.TryGetTarget(out session);
             //pdebug(DEBUG_DETAIL, "Starting.");
             //Session session;
             //this.session.TryGetTarget(out session);
