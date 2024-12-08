@@ -1829,8 +1829,6 @@ namespace Alpiste.Protocol.AB
             byte read_cmd = Defs.AB_EIP_CMD_CIP_READ_FRAG;
 
             //pdebug(DEBUG_INFO, "Starting.");
-            //Session session;
-            //this.session.TryGetTarget(out session);
             /* get a request buffer */
             Session session = null;
             sessionRef.TryGetTarget(out session);
@@ -1873,33 +1871,22 @@ namespace Alpiste.Protocol.AB
             data++;
 
             /* copy the tag name into the request */
-            //mem_copy(data, tag->encoded_name, tag->encoded_name_size);
             Array.Copy(encoded_name, 0, req.data, data, encoded_name_size);
-            /*for (int i = 0; i<encoded_name_size; i++)
-            {
-                req.data[data + i] = encoded_name[i];
-                data++;
-            }*/
-
+            
             data += encoded_name_size;
 
             /* add the count of elements to read. */
             req.data[data] = (byte) (elem_count & 255);
             req.data[data + 1] = (byte) (elem_count >> 8);
             data += 2;
-
-            //*((uint16_le*)data) = h2le16((uint16_t)(tag->elem_count));
-            //data += sizeof(uint16_le);
-
+                        
             if (read_cmd == Defs.AB_EIP_CMD_CIP_READ_FRAG)
             {
                 /* add the byte offset for this request */
-                //*((uint32_le*)data) = h2le32((uint32_t)byte_offset);
                 req.data[data] = (byte) (byte_offset & 255);
                 req.data[data+1]= (byte) ((byte_offset >> 8) & 255);
                 req.data[data + 2] = (byte)((byte_offset >> 16) & 255);
                 req.data[data + 3] = (byte)((byte_offset >> 24) & 255);
-                //data += sizeof(uint32_le);
                 data += 4;
             }
 
@@ -1912,22 +1899,18 @@ namespace Alpiste.Protocol.AB
             cip.router_timeout = 1; // h2le16(1); /* one second timeout, enough? */
 
             /* Common Packet Format fields for unconnected send. */
-            cip.cpf_item_count = /*h2le16*/(2);                 /* ALWAYS 2 */
-            cip.cpf_cai_item_type = /*h2le16(*/Defs.AB_EIP_ITEM_CAI;//);/* ALWAYS 0x00A1 connected address item */
-            cip.cpf_cai_item_length = /*h2le16*/(4);            /* ALWAYS 4, size of connection ID*/
-            cip.cpf_cdi_item_type = /*h2le16*/(Defs.AB_EIP_ITEM_CDI);/* ALWAYS 0x00B1 - connected Data Item */
-            cip.cpf_cdi_item_length = /*h2le16*/((UInt16)(data - embed_start+ 2/*HR*???*/));  //  (byte)(cip.cpf_conn_seq_num))) /* REQ: fill in with length of remaining data. */
+            cip.cpf_item_count = 2;                 /* ALWAYS 2 */
+            cip.cpf_cai_item_type = Defs.AB_EIP_ITEM_CAI;//);/* ALWAYS 0x00A1 connected address item */
+            cip.cpf_cai_item_length = 4;            /* ALWAYS 4, size of connection ID*/
+            cip.cpf_cdi_item_type = Defs.AB_EIP_ITEM_CDI;/* ALWAYS 0x00B1 - connected Data Item */
+            cip.cpf_cdi_item_length = ((UInt16)(data - embed_start+ 2/*HR*???*/));  //  (byte)(cip.cpf_conn_seq_num))) /* REQ: fill in with length of remaining data. */
 
             byte[] cip_data = cip.encodedData();
 
             Array.Copy(cip.encodedData(), 0, req.data, 0, eip_cip_co_req.BASE_SIZE);
-            /*for (int i = 0; i < cip_data.Length; i++)
-            {
-                req.data[i] = cip_data[i];
-            }*/
-
+            
             /* set the size of the request */
-            req.request_size = (int)(data /*- (req.data)*/);
+            req.request_size = data;
 
             /* set the session so that we know what session the request is aiming at */
             //req->session = tag->session;
@@ -3089,6 +3072,86 @@ namespace Alpiste.Protocol.AB
             //pdebug(DEBUG_DETAIL, "Done.");
 
             return PLCTAG_STATUS_OK;
+        }
+
+        public override Object syncRead(int timeout = 1000)
+        {
+            syncRead_common(timeout);
+
+            Console.WriteLine();
+            Console.WriteLine("Encoded type info size:" + encoded_type_info_size);
+            int datatype = encoded_type_info[0] ;
+            Console.Write(encoded_type_info[0] + "- ");
+            switch (datatype)
+            {
+                case 160:
+                    Console.WriteLine("Tipo Struct (Abreviada)");
+                    for (int i = 0; i < encoded_type_info_size; i++)
+                    {
+                        Console.WriteLine(encoded_type_info[i]);
+                    };
+                    break;
+                case 193:
+                    Console.WriteLine("Tipo BOOL");
+                    break;
+                case 194:
+                    Console.WriteLine("Tipo SINT");
+                    break;
+                case 195:
+                    Console.WriteLine("Tipo INT");
+                    break;
+                case 196:
+                    Console.WriteLine("Tipo DINT");
+                    break;
+                case 197:
+                    Console.WriteLine("Tipo LINT");
+                    break;
+                case 202:
+                    Console.WriteLine("Tipo Real");
+                    break;
+                default:
+                    for (int i = 0; i < encoded_type_info_size; i++)
+                    {
+                        Console.WriteLine(encoded_type_info[i]);
+                    };
+                    break;
+            }
+            Console.WriteLine("Segundo byte: "+ encoded_type_info[1] );
+            Console.WriteLine();
+                
+            int result = 0;
+
+
+            /*
+            if (!is_bit)
+            {
+                api_mutex.mutex_lock();
+                /*critical_block(tag->api_mutex)*/
+            /*    {
+                    result = (Int32)(((UInt32)(data[byte_order.int32_order[0]]) << 0) +
+                          ((Int32)(data[byte_order.int32_order[1]]) << 8) +
+                          ((Int32)(data[byte_order.int32_order[2]]) << 16) +
+                          ((UInt32)(data[byte_order.int32_order[3]]) << 24));
+
+                    status_ = PLCTAG_STATUS_OK;
+
+
+                } while (false) ;
+                api_mutex.mutex_unlock();
+            }
+            else
+            {
+                /*     int rc = plc_tag_get_bit(id, tag.bit);
+
+                     /* make sure the response is good. */
+                /*    if (rc >= 0)
+                    {
+                        res = (Int32)rc;
+                    }*/
+        //    }
+
+
+            return result; // rc;
         }
 
     }

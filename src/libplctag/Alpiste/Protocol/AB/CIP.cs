@@ -807,6 +807,7 @@ namespace Alpiste.Protocol.AB
             while (/*(isalnum(name[name_i])*/
                 (name_i < name.Length && name_i < name.ToUpper().Length &&
                 ((name.ToUpper()[name_i] >= 'A' && name.ToUpper()[name_i] <= 'Z') ||
+                (name[name_i] >= '0' && name[name_i] <= '9') ||
                 name[name_i] == ':' || name[name_i] == '_') && (encoded_i < (MAX_TAG_NAME - 1))))
             {
                 tag.encoded_name[encoded_i] = (byte)name[name_i];

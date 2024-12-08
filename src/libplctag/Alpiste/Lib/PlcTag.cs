@@ -4904,7 +4904,7 @@ namespace Alpiste.Lib
 
         #endregion 
 
-        public Object syncRead(int timeout = 1000)
+        public void syncRead_common(int timeout = 1000)
         {
             int is_done = 0;
 
@@ -5071,7 +5071,15 @@ namespace Alpiste.Lib
 
             //pdebug(DEBUG_INFO, "Done");
 
+        }
+
+
+
+        public virtual Object syncRead(int timeout = 1000)
+        {
+            syncRead_common(timeout);
             int result = 0;
+
             if (!is_bit)
             {
                 api_mutex.mutex_lock();
