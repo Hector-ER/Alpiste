@@ -18,7 +18,7 @@ namespace CSharpDotNetCore
     {
 
         const int TAG_STRING_SIZE = 200;
-        static readonly string gateway = "192.168.0.10";
+        static readonly string gateway = "10.12.68.155"; //"192.168.0.10";
         static readonly string path = "1,0";
         static readonly TimeSpan timeout = TimeSpan.FromSeconds(10);
 

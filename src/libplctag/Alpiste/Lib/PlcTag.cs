@@ -1335,7 +1335,7 @@ namespace Alpiste.Lib
         public tag_byte_order_t byte_order = null;
         public mutex_t ext_mutex = new mutex_t();
         public mutex_t api_mutex = new mutex_t();
-        public Cond tag_cond_wait;
+        public Cond tag_cond_wait = new Cond();
         public WeakReference<callback_func_ex> callback;
         public Object userdata;
         public Int64 read_cache_expire;

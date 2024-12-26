@@ -57,7 +57,7 @@ namespace Alpiste.Utils
             {
                 /* find start of needle in haystack */
                 //while (toupper(*start) != toupper(*needle))
-                while (haystack.ToUpper()[start] == needle.ToUpper()[0])
+                while (haystack.ToUpper()[start] != needle.ToUpper()[0])
                 {
                     start++;
                     haystack_len--;

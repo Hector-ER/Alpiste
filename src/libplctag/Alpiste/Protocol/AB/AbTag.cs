@@ -18,6 +18,7 @@ using System.ComponentModel.Design;
 using System.Drawing;
 using static libplctag.NativeImport.plctag;
 using System.Diagnostics.Eventing.Reader;
+using libplctag.DataTypes;
 
 
 namespace Alpiste.Protocol.AB
@@ -209,6 +210,31 @@ namespace Alpiste.Protocol.AB
             switch (plc_type)
             {
                 case PlcType.AB_PLC_LGX:
+
+                    String tmp_tag_name = Attr.attr_get_str(attribs, "name", null);
+                    int special_tag_rc = PlcTag.PLCTAG_STATUS_OK;
+
+                    /* check for special tags. */
+                    if (tmp_tag_name.ToLower() == "@raw")
+                    {
+     //*HR*                   special_tag_rc = setup_raw_tag(/*tag*/);
+                    }
+                    else if (tmp_tag_name.ToLower()== "@tags")
+                    {
+     //*HR*                    special_tag_rc = setup_tag_listing_tag(/*tag,*/ tmp_tag_name);
+                    }
+                    else if (Str.str_str_cmp_i(tmp_tag_name, "@udt/")!=null)
+                    {
+                        // special_tag_rc = setup_udt_tag(/*tag,*/ tmp_tag_name, attribs, tag_callback_func, userdata);
+                        return setup_udt_tag(/*tag,*/ tmp_tag_name, attribs, tag_callback_func, userdata);
+                    } /* else not a special tag. */
+
+                    if (special_tag_rc != PLCTAG_STATUS_OK)
+                    {
+                        //pdebug(DEBUG_WARN, "Error parsing tag listing name!");
+                        return null; // special_tag_rc;
+                    }
+                    
                     return new EipCipTag(attribs, tag_callback_func, userdata);
                 default:
                     //return new AbTag(attribs, tag_callback_func, userdata);
@@ -688,7 +714,10 @@ namespace Alpiste.Protocol.AB
             /*
              * check the tag name, this is protocol specific.
              */
-
+            if (this is UdtTag)
+            {
+                special_tag = 1;
+            }
             if (special_tag == 0 && check_tag_name(/*tag,*/ Attr.attr_get_str(attribs, "name", null)) != PlcTag.PLCTAG_STATUS_OK)
             {
                 //pdebug(DEBUG_INFO, "Bad tag name!");
@@ -1483,6 +1512,45 @@ namespace Alpiste.Protocol.AB
                 return tag;
         }
 
+        public static AbTag setup_udt_tag(/*ab_tag_p tag,*/ String name, attr attribs, callback_func_ex tag_callback_func, Object userdata)
+        {
+            int rc = PLCTAG_STATUS_OK;
+            string tag_id_str = name.Substring(5); // + str_length("@udt/");
+            int tag_id = 0;
+
+            //pdebug(DEBUG_DETAIL, "Starting.");
+
+            /* decode the UDT ID */
+            tag_id = int.Parse(tag_id_str);  // str_to_int(tag_id_str, &tag_id);
+            if(rc != PLCTAG_STATUS_OK) {
+                //pdebug(DEBUG_WARN, "Badly formatted or missing UDT id in UDT string %s!", name);
+                throw new Exception("Badly formatted or missing UDT id in UDT string");
+                //return PLCTAG_ERR_BAD_PARAM;
+            }
+
+          /*  if(tag_id< 0 || tag_id> 4095) {
+                //pdebug(DEBUG_WARN, "UDT ID must be between 0 and 4095 but was %d!", tag_id);
+                throw new Exception("UDT ID must be between 0 and 4095 but was %d!");
+                //return PLCTAG_ERR_OUT_OF_BOUNDS;
+        }*/
+
+            //PlcTag tag = new UdtTag(attribs, tag_callback_func, userdata);
+        
+                /*fill in the blanks. */
+            //tag.udt_id = /*(uint16_t)(unsigned int)*/tag_id;
+            //tag.special_tag = 1;
+            //tag.elem_type = AB_TYPE_TAG_UDT;
+            //tag.elem_count = 1;
+            //tag.elem_size = 1;
+
+            //tag.byte_order = &udt_tag_logix_byte_order;
+
+            //tag->vtable = &udt_tag_vtable;*/
+
+        //pdebug(DEBUG_INFO, "Done. Found UDT tag name %s.", name);
+
+        return new UdtTag(tag_id, attribs, tag_callback_func, userdata);
+        }
 
         public static PlcType get_plc_type(attr attribs)
         {
@@ -1514,6 +1582,7 @@ namespace Alpiste.Protocol.AB
             }
             else if (cpu_type.ToLower() == "micrologix" || cpu_type.ToLower() == "mlgx")
             {
+                
                 //pdebug(DEBUG_DETAIL, "Found MicroLogix PLC.");
                 return PlcType.AB_PLC_MLGX;
             }
@@ -1522,6 +1591,8 @@ namespace Alpiste.Protocol.AB
                     cpu_type.ToLower() == "contrologix" || cpu_type.ToLower() == "logix")
             {
                 //pdebug(DEBUG_DETAIL, "Found ControlLogix/CompactLogix PLC.");
+                
+        
                 return PlcType.AB_PLC_LGX;
             }
             else if (cpu_type.ToLower() == "omron-njnx" || cpu_type.ToLower() == "omron-nj" || 
@@ -1678,25 +1749,25 @@ namespace Alpiste.Protocol.AB
                             int special_tag_rc = PlcTag.PLCTAG_STATUS_OK;
 
                             /* check for special tags. */
-     /*HR*                       if (tmp_tag_name.ToLower() == "@raw")
+                            if (tmp_tag_name.ToLower() == "@raw")
                             {
-                                special_tag_rc = setup_raw_tag(tag);
+     //*HR*                           special_tag_rc = setup_raw_tag(tag);
                             }
-                            else if (tmp_tag_name.ToLower()!= "@tags")
+                            else if (tmp_tag_name.ToLower() == "@tags")
                             {
-                                special_tag_rc = setup_tag_listing_tag(tag, tmp_tag_name);
+     //*HR*                           special_tag_rc = setup_tag_listing_tag(tag, tmp_tag_name);
                             }
                             else if (Str.str_str_cmp_i(tmp_tag_name, "@udt/")!=null)
                             {
-                                special_tag_rc = setup_udt_tag(tag, tmp_tag_name);
+     //*HR*                           special_tag_rc = setup_udt_tag(tmp_tag_name);
                             } /* else not a special tag. */
 
-    /*HR*                        if (special_tag_rc != PLCTAG_STATUS_OK)
+     /*HR*                       if (special_tag_rc != PLCTAG_STATUS_OK)
                             {
                                 //pdebug(DEBUG_WARN, "Error parsing tag listing name!");
                                 return special_tag_rc;
-                            }
-    */                    }
+                            }  /**/
+                        }
 
                         /* if we did not set an element size yet, set one. */
                         if (this.elem_size == 0)
@@ -1865,6 +1936,7 @@ namespace Alpiste.Protocol.AB
             //     read_cmd = AB_EIP_CMD_CIP_READ;
             // } else {
             read_cmd = Defs.AB_EIP_CMD_CIP_READ_FRAG;
+            //read_cmd = Defs.AB_EIP_CMD_CIP_GET_ATTR_LIST;
             // }
 
             req.data[data] = read_cmd;
@@ -1923,6 +1995,160 @@ namespace Alpiste.Protocol.AB
             
             rc = session.session_add_request(req);
     
+
+            if (rc != PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_ERROR, "Unable to add request to session! rc=%d", rc);
+                //tag.req = rc_dec(req);
+                return rc;
+            }
+
+            /* save the request for later */
+            this.req = req.weakReference;
+
+            //pdebug(DEBUG_INFO, "Done");
+
+            return PLCTAG_STATUS_OK;
+        }
+
+        protected int build_read_request_connected_2(int byte_offset)
+        {
+            eip_cip_co_req cip = null;
+            int /*byte[]*/ data = 0; // null;
+            Request /*ab_request_p*/ req = null;
+            int rc = PLCTAG_STATUS_OK;
+            byte read_cmd = Defs.AB_EIP_CMD_CIP_READ_FRAG;
+
+            //pdebug(DEBUG_INFO, "Starting.");
+            /* get a request buffer */
+            Session session = null;
+            sessionRef.TryGetTarget(out session);
+            rc = session.session_create_request(tag_id, ref req);
+            if (rc != PLCTAG_STATUS_OK)
+            {
+                //pdebug(DEBUG_ERROR, "Unable to get new request.  rc=%d", rc);
+                return rc;
+            }
+
+            /* point the request struct at the buffer */
+            //cip = (eip_cip_co_req)(req.data);
+            cip = new eip_cip_co_req();
+
+            /* point to the end of the struct */
+            //data = (req->data) + sizeof(eip_cip_co_req);
+
+            data = eip_cip_co_req.BASE_SIZE;
+
+            /*
+             * set up the embedded CIP read packet
+             * The format is:
+             *
+             * uint8_t cmd
+             * LLA formatted name
+             * uint16_t # of elements to read
+             */
+
+            //embed_start = data;
+            int embed_start = data;
+
+            /* set up the CIP Read request */
+            // if(tag->plc_type == AB_PLC_OMRON_NJNX) {
+            //     read_cmd = AB_EIP_CMD_CIP_READ;
+            // } else {
+            read_cmd = Defs.AB_EIP_CMD_CIP_READ_FRAG;
+            //read_cmd = Defs.AB_EIP_CMD_CIP_GET_ATTR_LIST;
+            // }
+
+            req.data[data] = Defs.AB_EIP_CMD_CIP_GET_ATTR_LIST; // read_cmd;
+            req.data[data] = 1; // Defs.AB_EIP_CMD_CIP_READ; // read_cmd;
+            data++;
+
+            //req.data[data] = 0x07; // 0x20; /* class type */
+            //req.data[data + 1] = 0x6C; /* UDT class */
+            //data+=2;
+
+            /* copy the tag name into the request */
+            Array.Copy(encoded_name, 0, req.data, data, encoded_name_size);
+
+            data += encoded_name_size;
+
+            /* add the count of elements to read. */
+            req.data[data] = (byte)(elem_count & 255);
+            req.data[data + 1] = (byte)(elem_count >> 8);
+            data += 2;
+
+
+
+            UInt16 tmp_u16;
+
+            /* set up the request attributes, first the number of attributes. */
+            tmp_u16 = 4; // h2le16((uint16_t)4);  /* MAGIC, we have four attributes we want. */
+            //mem_copy(data, &tmp_u16, (int)sizeof(tmp_u16));
+            req.data[data] = (byte)(tmp_u16 & 255);
+            req.data[data + 1] = (byte)(tmp_u16 >> 8);
+            data += 2; // (int)sizeof(tmp_u16);
+
+            /* first attribute: symbol type */
+            tmp_u16 = 4; // h2le16((uint16_t)0x04);  /* MAGIC, Total field definition size in 32-bit words. */
+            //mem_copy(data, &tmp_u16, (int)sizeof(tmp_u16));
+            req.data[data] = (byte)(tmp_u16 & 255);
+            req.data[data + 1] = (byte)(tmp_u16 >> 8);
+            data += 2; // (int)sizeof(tmp_u16);
+
+            /* second attribute: base type size in bytes */
+            tmp_u16 = 5; // h2le16((uint16_t)0x05);  /* MAGIC, struct size in bytes. */
+            //mem_copy(data, &tmp_u16, (int)sizeof(tmp_u16));
+            req.data[data] = (byte)(tmp_u16 & 255);
+            req.data[data + 1] = (byte)(tmp_u16 >> 8);
+            data += 2;  //(int)sizeof(tmp_u16);
+
+            /* third attribute: tag array dimensions */
+            tmp_u16 = 2;  // h2le16((uint16_t)0x02);  /* MAGIC, number of structure members. */
+            //mem_copy(data, &tmp_u16, (int)sizeof(tmp_u16));
+            req.data[data] = (byte)(tmp_u16 & 255);
+            req.data[data + 1] = (byte)(tmp_u16 >> 8);
+            data += 2;  // (int)sizeof(tmp_u16);
+
+            /* fourth attribute: symbol/tag name */
+            tmp_u16 = 1;  // h2le16((uint16_t)0x01);  /* MAGIC, struct type/handle. */
+            //mem_copy(data, &tmp_u16, (int)sizeof(tmp_u16));
+            req.data[data] = (byte)(tmp_u16 & 255);
+            req.data[data + 1] = (byte)(tmp_u16 >> 8);
+            data += 2;  // (int)sizeof(tmp_u16);
+
+            /* now we go back and fill in the fields of the static part */
+
+            /* encap fields */
+            cip.encap_command = /*h2le16(*/Defs.AB_EIP_CONNECTED_SEND; //); /* ALWAYS 0x0070 Unconnected Send*/
+
+            /* router timeout */
+            cip.router_timeout = 1; // h2le16(1); /* one second timeout, enough? */
+
+            /* Common Packet Format fields for unconnected send. */
+            cip.cpf_item_count = 2;                 /* ALWAYS 2 */
+            cip.cpf_cai_item_type = Defs.AB_EIP_ITEM_CAI;//);/* ALWAYS 0x00A1 connected address item */
+            cip.cpf_cai_item_length = 4;            /* ALWAYS 4, size of connection ID*/
+            cip.cpf_cdi_item_type = Defs.AB_EIP_ITEM_CDI;/* ALWAYS 0x00B1 - connected Data Item */
+            cip.cpf_cdi_item_length = ((UInt16)(data - embed_start + 2/*HR*???*/));  //  (byte)(cip.cpf_conn_seq_num))) /* REQ: fill in with length of remaining data. */
+
+            byte[] cip_data = cip.encodedData();
+
+            Array.Copy(cip.encodedData(), 0, req.data, 0, eip_cip_co_req.BASE_SIZE);
+
+            /* set the size of the request */
+            req.request_size = data;
+
+            /* set the session so that we know what session the request is aiming at */
+            //req->session = tag->session;
+
+            req.allow_packing = allow_packing;
+
+
+
+            /* add the request to the session's list. */
+
+            rc = session.session_add_request(req);
+
 
             if (rc != PLCTAG_STATUS_OK)
             {
@@ -2540,7 +2766,7 @@ namespace Alpiste.Protocol.AB
             return rc;
         }
 
-        int check_read_request_status(/*ab_tag_p tag,*/ Request /*ab_request_p*/ request)
+        public int check_read_request_status(/*ab_tag_p tag,*/ Request /*ab_request_p*/ request)
         {
             int rc = PLCTAG_STATUS_OK;
 
@@ -2737,7 +2963,7 @@ namespace Alpiste.Protocol.AB
                 // if(tag->tag_list) {
                 //     rc = build_tag_list_request_connected(tag);
                 // } else {
-                rc = build_read_request_connected(offset);
+                rc = build_read_request_connected_2(offset);
                 // }
             }
             else
