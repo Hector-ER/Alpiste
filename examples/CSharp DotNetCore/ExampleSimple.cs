@@ -17,8 +17,8 @@ namespace CSharpDotNetCore
             // Example tag configuration for a global DINT tag in an Allen-Bradley CompactLogix/ControlLogix PLC
             var myTag = new Tag()
             {
-                Name = "SomeDINT",
-                Gateway = "10.10.10.10",
+                Name = "Prueba_Dint", //SomeDINT",
+                Gateway = "10.12.68.155", //"10.10.10.10",
                 Path = "1,0",
                 PlcType = PlcType.ControlLogix,
                 Protocol = Protocol.ab_eip
@@ -26,6 +26,9 @@ namespace CSharpDotNetCore
 
             // Read the value from the PLC and output to console
             myTag.Read();
+            var myTagType = myTag.GetBuffer();
+            var myTagType2 = myTag.GetByteArrayAttribute("raw_tag_type_bytes");
+
             int originalValue = myTag.GetInt32(0);
             Console.WriteLine($"Original value: {originalValue}");
 

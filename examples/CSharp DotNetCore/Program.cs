@@ -5,6 +5,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using CSharp_DotNetCore;
 using System;
 
 namespace CSharpDotNetCore
@@ -13,7 +14,8 @@ namespace CSharpDotNetCore
     {
         static void Main(string[] args)
         {
-            ExampleSimple.Run();
+            ExampleTagDynamic.Run();
+            //ExampleSimple.Run();
             Console.ReadKey();
         }
     }

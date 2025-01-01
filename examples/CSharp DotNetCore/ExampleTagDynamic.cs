@@ -7,6 +7,8 @@
 
 using libplctag;
 using System;
+using System.IO;
+using System.Xml.Linq;
 
 namespace CSharp_DotNetCore
 {
@@ -22,10 +24,18 @@ namespace CSharp_DotNetCore
              */
 
             var tag = new TagDynamic()
-            {
+            /*{
                 Name = "MyDintTag",
                 // Configure other properties....
+            };*/
+            {
+                Name = "Prueba_Dint", //SomeDINT",
+                Gateway = "10.12.68.155", //"10.10.10.10",
+                Path = "1,0"//,
+                //PlcType = PlcType.ControlLogix,
+                //Protocol = Protocol.ab_eip
             };
+
 
             tag.Initialize(); // Detects the tag is a DINT and configures the appropriate getter and setter.
             Console.WriteLine(tag.Value);  // Prints e.g. 1234

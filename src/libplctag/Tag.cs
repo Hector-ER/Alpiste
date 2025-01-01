@@ -5,6 +5,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using libplctag.DataTypes.Simple;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -61,6 +62,13 @@ namespace libplctag
         private bool? _stringIsZeroTerminated;
         private uint? _stringPadBytes;
         private uint? _stringTotalLength;
+
+
+
+        //Alpiste
+        private bool autoTypeDetection = true;
+        private int type = 0;
+
 
         public Tag()
         {
@@ -634,6 +642,7 @@ namespace libplctag
             var attributeString = GetAttributeString();
             
             var result = _native.plc_tag_create_ex(attributeString, coreLibCallbackFuncExDelegate, IntPtr.Zero, millisecondTimeout);
+            
             if (result < 0)
             {
                 RemoveEventsAndRemoveCallback();
@@ -735,6 +744,45 @@ namespace libplctag
             }
         }
 
+        private void detectType()
+        {
+            Tag detectTypeTag = new Tag()
+            {
+                Name = "@tags",
+                Gateway = this.Gateway,
+                Path = this.Path,
+                PlcType = this.PlcType,
+                Protocol = this.Protocol,
+                autoTypeDetection = false
+            };
+            detectTypeTag.Read();
+            var xx = detectTypeTag.GetBuffer();
+            int punt = 0;
+            /*while (xx.Length >punt)
+            {
+                byte[] x1 = new byte[20];
+                Array.Copy(xx, x1, 20);
+                Int32 d1 = detectTypeTag.GetInt32(punt + 0);
+                Int16 d2_1 = detectTypeTag.GetInt16(punt + 4);
+                Int16 d2_2 = detectTypeTag.GetInt16(punt + 8);
+                Int32 d3 = detectTypeTag.GetInt32(punt + 8);
+                Int32 d4 = detectTypeTag.GetInt32(punt + 12);
+                Int32 d5 = detectTypeTag.GetInt32(punt + 16);
+                Int16 x2 = detectTypeTag.GetInt16(punt + 20);
+                String s = detectTypeTag.GetString(punt + 20);
+                /*for (int i = 0; i < x2; i++)
+                {
+                    s = s + (char)(xx[22 + i]);
+                }*/
+            /*    Console.WriteLine(d1.ToString() + ", " + d2_1.ToString() + ",  " + d2_2.ToString() + ",  " + d3.ToString() + ", " + d4.ToString() +", " + d5.ToString() + " -- " + s);
+                punt = punt + 22 + s.Length;
+                /*byte[] xxx = new byte[xx.Length - 22 - x2];
+                Array.Copy(xx, 22 + x2, xxx, 0, xxx.Length);
+                */
+           /* }*/
+
+        }
+
         /// <summary>
         /// Executes a synchronous read on a tag.
         /// Timeout is controlled via class property.
@@ -749,7 +797,14 @@ namespace libplctag
         {
             ThrowIfAlreadyDisposed();
             InitializeIfRequired();
-
+            
+            if (autoTypeDetection)
+            {
+                if (type == 0)
+                {
+                    detectType();
+                }
+            }
             var millisecondTimeout = (int)Timeout.TotalMilliseconds;
 
             var result = (Status)_native.plc_tag_read(nativeTagHandle, millisecondTimeout);
