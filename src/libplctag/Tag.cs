@@ -1127,7 +1127,7 @@ namespace libplctag
         private void ThrowIfStatusNotOk(Status? status = null)
         {
             var statusToCheck = status ?? GetStatus();
-            if (statusToCheck != Status.Ok)
+            if (statusToCheck < Status.Ok)
                 throw new LibPlcTagException(statusToCheck);
         }
 

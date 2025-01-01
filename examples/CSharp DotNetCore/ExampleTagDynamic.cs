@@ -29,7 +29,7 @@ namespace CSharp_DotNetCore
                 // Configure other properties....
             };*/
             {
-                Name = "Prueba_Dint", //SomeDINT",
+                Name = "Prueba_Timer",  //"Prueba_Dint", //SomeDINT",
                 Gateway = "10.12.68.155", //"10.10.10.10",
                 Path = "1,0"//,
                 //PlcType = PlcType.ControlLogix,
@@ -237,6 +237,17 @@ namespace CSharp_DotNetCore
                     case 0xDD: // Engineering units
                     case 0xDE: // International character string (encoding?)
                         throw new NotImplementedException();
+                    case 672:
+                        Console.WriteLine("tagTypeBytes = "+ tagTypeBytes.Length.ToString());
+                        for (int i=0; i< tagTypeBytes.Length; i++)
+                        {
+                            Console.WriteLine(i.ToString() + ": " + tagTypeBytes[i].ToString("X"));
+                        }
+                        //Console.WriteLine("672");
+
+                        throw new NotImplementedException();
+
+
                 }
             }
         }
